@@ -13,10 +13,10 @@ When Deploy starts this service, it temporarily points DSH / OpenCode chat at th
 
 ## Steps
 
-1. Install and **start** the service in Deploy Ops → Tools.
-2. Open the UI, add at least one upstream, save.
-3. Use the **local** API key (placeholder for Agents, not the upstream key).
-4. Chat in DSH / OpenCode as usual.
+1. Install **Free Token Gateway** in Deploy Ops → Tools.
+2. Click **Configure**: Deploy starts the gateway if needed and opens its config UI in a top-level WebView (same pattern as CMS/CRM).
+3. Add at least one upstream and save.
+4. Chat in DSH / OpenCode as usual (Deploy rewrites baseURL while the service runs).
 5. **Stop** the service to restore original Agent model config.
 
 ## Notes

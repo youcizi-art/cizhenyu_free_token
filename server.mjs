@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * CIZHENYU Free Token Gateway
- * - UI:  http://127.0.0.1:<port>/
- * - API: http://127.0.0.1:<port>/v1/*  (OpenAI compatible)
- * - Admin JSON under /api/*
+ * Free Token Gateway
+ * - UI:  /
+ * - OpenAI:  /v1/chat/completions 、 /v1/models
+ * - Anthropic(DSH): /v1/messages 、 /models（origin 根路径）
  */
 import { createServer } from "node:http";
 import { readFileSync, existsSync, writeFileSync } from "node:fs";
@@ -11,6 +11,12 @@ import { join, extname } from "node:path";
 import { randomUUID } from "node:crypto";
 import { loadConfig, saveConfig, publicConfigView, listModelIds } from "./lib/config.mjs";
 import { proxyChatCompletions, proxyChatCompletionsStream } from "./lib/proxy.mjs";
+import { proxyAnthropicMessages } from "./lib/anthropic.mjs";
+import {
+  applyOnGatewayUp,
+  restoreOnGatewayDown,
+  wireStatus,
+} from "./lib/agent_wire.mjs";
 import { ROOT, ensureHome, portPath, pidPath, defaultPort } from "./lib/paths.mjs";
 
 ensureHome();
@@ -46,9 +52,15 @@ function checkLocalAuth(req, cfg) {
   const auth = String(req.headers.authorization || "");
   const m = auth.match(/^Bearer\s+(.+)$/i);
   const key = m ? m[1].trim() : "";
-  // UI 同源 /api 可无 key；/v1 必须带 localApiKey
   if (!key) return false;
   return key === cfg.localApiKey;
+}
+
+/** DSH / Anthropic 客户端常用 x-api-key */
+function checkAnyAuth(req, cfg) {
+  if (checkLocalAuth(req, cfg)) return true;
+  const x = String(req.headers["x-api-key"] || "").trim();
+  return Boolean(x) && x === cfg.localApiKey;
 }
 
 function mime(p) {
@@ -59,10 +71,6 @@ function mime(p) {
       return "text/javascript; charset=utf-8";
     case ".css":
       return "text/css; charset=utf-8";
-    case ".json":
-      return "application/json; charset=utf-8";
-    case ".svg":
-      return "image/svg+xml";
     default:
       return "application/octet-stream";
   }
@@ -79,6 +87,25 @@ function serveStatic(res, rel) {
   res.end(buf);
 }
 
+function modelsPayload(cfg) {
+  const ids = listModelIds(cfg);
+  return ids.map((id) => ({
+    id,
+    object: "model",
+    created: 0,
+    owned_by: "cizhenyu-free-token",
+    display_name: id,
+  }));
+}
+
+function tryApplyWire() {
+  try {
+    return { ok: true, wire: applyOnGatewayUp() };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e), wire: wireStatus() };
+  }
+}
+
 async function handle(req, res) {
   const cfg = loadConfig();
   const host = req.headers.host || `127.0.0.1:${cfg.port}`;
@@ -89,7 +116,7 @@ async function handle(req, res) {
     res.writeHead(204, {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-      "Access-Control-Allow-Headers": "Authorization, Content-Type",
+      "Access-Control-Allow-Headers": "Authorization, Content-Type, x-api-key, anthropic-version",
     });
     res.end();
     return;
@@ -102,14 +129,29 @@ async function handle(req, res) {
       port: cfg.port,
       upstreams: (cfg.upstreams || []).filter((u) => u.enabled !== false).length,
       models: listModelIds(cfg).length,
+      wire: wireStatus(),
       pid: process.pid,
     });
     return;
   }
 
-  // —— Admin API（本机 UI；无 Bearer 也可读写本机配置，仅绑定 127.0.0.1）——
   if (path === "/api/config" && req.method === "GET") {
-    sendJson(res, 200, publicConfigView(cfg));
+    sendJson(res, 200, { ...publicConfigView(cfg), wire: wireStatus() });
+    return;
+  }
+
+  if (path === "/api/wire" && req.method === "GET") {
+    sendJson(res, 200, wireStatus());
+    return;
+  }
+
+  if (path === "/api/wire/apply" && req.method === "POST") {
+    sendJson(res, 200, tryApplyWire());
+    return;
+  }
+
+  if (path === "/api/wire/restore" && req.method === "POST") {
+    sendJson(res, 200, { ok: true, wire: restoreOnGatewayDown() });
     return;
   }
 
@@ -139,7 +181,7 @@ async function handle(req, res) {
             : String(u.apiKey);
         return {
           id: String(u.id || `up-${i + 1}`),
-          name: String(u.name || `Upstream ${i + 1}`),
+          name: String(u.name || `上游 ${i + 1}`),
           baseUrl: String(u.baseUrl || "").trim(),
           apiKey,
           models: Array.isArray(u.models)
@@ -150,12 +192,12 @@ async function handle(req, res) {
       });
     }
     const saved = saveConfig(next);
-    sendJson(res, 200, publicConfigView(saved));
+    const wire = tryApplyWire();
+    sendJson(res, 200, { ...publicConfigView(saved), wire });
     return;
   }
 
   if (path === "/api/import-cms-preview" && req.method === "POST") {
-    // 仅接受客户端已拉取的 ai_config JSON，不在工具内嵌 CMS 登录
     let body;
     try {
       body = await readJson(req);
@@ -186,32 +228,51 @@ async function handle(req, res) {
     return;
   }
 
-  // —— OpenAI compatible ——
+  // DSH 模型列表：GET {origin}/models
+  if (path === "/models" && req.method === "GET") {
+    if (!checkAnyAuth(req, cfg)) {
+      sendJson(res, 401, { error: { type: "authentication_error", message: "Invalid API key" } });
+      return;
+    }
+    sendJson(res, 200, { data: modelsPayload(cfg) });
+    return;
+  }
+
   if (path === "/v1/models" && req.method === "GET") {
-    if (!checkLocalAuth(req, cfg)) {
+    if (!checkAnyAuth(req, cfg)) {
       sendJson(res, 401, { error: { message: "Invalid API key", type: "auth" } });
       return;
     }
-    const data = listModelIds(cfg).map((id) => ({
-      id,
-      object: "model",
-      created: 0,
-      owned_by: "cizhenyu-free-token",
-    }));
-    if (!data.length) {
-      data.push({
-        id: cfg.defaultModel || "free-token/default",
-        object: "model",
-        created: 0,
-        owned_by: "cizhenyu-free-token",
+    sendJson(res, 200, { object: "list", data: modelsPayload(cfg) });
+    return;
+  }
+
+  // DSH Anthropic Messages
+  if (path === "/v1/messages" && req.method === "POST") {
+    if (!checkAnyAuth(req, cfg)) {
+      sendJson(res, 401, {
+        type: "error",
+        error: { type: "authentication_error", message: "Invalid API key" },
       });
+      return;
     }
-    sendJson(res, 200, { object: "list", data });
+    let body;
+    try {
+      body = await readJson(req);
+    } catch {
+      sendJson(res, 400, {
+        type: "error",
+        error: { type: "invalid_request_error", message: "invalid json" },
+      });
+      return;
+    }
+    const result = await proxyAnthropicMessages(cfg, body);
+    sendJson(res, result.status, result.body);
     return;
   }
 
   if (path === "/v1/chat/completions" && req.method === "POST") {
-    if (!checkLocalAuth(req, cfg)) {
+    if (!checkAnyAuth(req, cfg)) {
       sendJson(res, 401, { error: { message: "Invalid API key", type: "auth" } });
       return;
     }
@@ -235,7 +296,7 @@ async function handle(req, res) {
     serveStatic(res, "index.html");
     return;
   }
-  if (path.startsWith("/assets/") || path === "/app.js" || path === "/style.css") {
+  if (path === "/app.js" || path === "/style.css") {
     serveStatic(res, path.replace(/^\//, ""));
     return;
   }
@@ -258,9 +319,16 @@ const server = createServer((req, res) => {
 });
 
 server.listen(port, "127.0.0.1", () => {
-  console.log(`cizhenyu-free-token listening on http://127.0.0.1:${port}`);
-  console.log(`UI  http://127.0.0.1:${port}/`);
-  console.log(`API http://127.0.0.1:${port}/v1`);
+  console.log(`cizhenyu-free-token http://127.0.0.1:${port}`);
+  console.log(`  UI        http://127.0.0.1:${port}/`);
+  console.log(`  OpenAI    http://127.0.0.1:${port}/v1`);
+  console.log(`  Anthropic http://127.0.0.1:${port}/v1/messages`);
+  try {
+    const w = applyOnGatewayUp();
+    console.log(`  agent wire active=${w.active} model=${w.defaultModel || ""}`);
+  } catch (e) {
+    console.log(`  agent wire skipped: ${e?.message || e}`);
+  }
 });
 
 process.on("SIGINT", () => process.exit(0));

@@ -14,6 +14,11 @@
     "steps": [],
     "readyCheck": ["server.mjs", "manage.mjs", "mcp_launcher.mjs"]
   },
+  "config": {
+    "type": "page",
+    "url": "http://127.0.0.1:20188/",
+    "requireService": true
+  },
   "env": [
     { "name": "CIZHENYU_AUTH_DIR", "from": "credentialsDir" }
   ],
@@ -40,7 +45,6 @@
   "defaultLocale": "en",
   "i18n": {
     "zh-CN": {
-      "name": "免费 Token 网关",
       "description": "本机 OpenAI 兼容 LLM 网关（含配置 UI）。启用后临时把 DSH/OpenCode 聊天指向本网关；关闭后恢复原模型配置。上游 API Key 只保存在网关 home。"
     }
   }

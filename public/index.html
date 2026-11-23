@@ -3,62 +3,77 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>CIZHENYU Free Token</title>
+    <title>Free Token Gateway</title>
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
-    <main class="wrap">
-      <header class="hero">
-        <p class="eyebrow">CIZHENYU Ops Tool</p>
-        <h1>Free Token Gateway</h1>
-        <p class="lede">
-          本机 OpenAI 兼容网关。在此配置上游 API Key；启用服务后 Deploy 会临时把 DSH / OpenCode
-          指向本网关，关闭后恢复原配置。密钥只保存在本工具 home。
-        </p>
+    <main class="page">
+      <header class="header">
+        <div>
+          <h1>Free Token Gateway</h1>
+          <p class="subtitle">
+            把你自己的 API（OpenAI 兼容）接到本机网关。保存后会临时改写 DSH / OpenCode
+            的模型入口；停止服务后自动恢复。
+          </p>
+        </div>
+        <div id="wireBadge" class="badge">检查中…</div>
       </header>
 
-      <section class="panel">
-        <h2>接入信息</h2>
-        <div class="grid">
-          <label>
-            本地端口
+      <section class="card" id="statusCard">
+        <h2>当前状态</h2>
+        <ul class="status-list" id="statusList"></ul>
+        <p class="tip" id="statusTip">改写配置后请重新打开 DSH / OpenCode，正在运行的窗口不会自动切换模型。</p>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <p class="step">步骤 1</p>
+            <h2>配置上游 API</h2>
+            <p class="desc">填写你实际调用大模型的地址、密钥和模型名称。至少启用一条上游。</p>
+          </div>
+          <button type="button" id="btnAdd" class="btn">添加上游</button>
+        </div>
+        <div id="upstreams" class="upstreams"></div>
+      </section>
+
+      <section class="card">
+        <p class="step">步骤 2</p>
+        <h2>默认模型</h2>
+        <p class="desc">Agent 启动后优先使用的模型 id（必须来自上面某一条上游的模型列表）。</p>
+        <label class="field">
+          <span>默认模型</span>
+          <select id="defaultModel"></select>
+        </label>
+      </section>
+
+      <details class="card advanced">
+        <summary>高级设置（一般不用改）</summary>
+        <div class="advanced-body">
+          <label class="field">
+            <span>本机端口</span>
             <input id="port" type="number" min="1024" max="65535" />
           </label>
-          <label>
-            默认模型 id
-            <input id="defaultModel" type="text" placeholder="例如 gpt-4o-mini" />
+          <label class="field">
+            <span>网关本地 Key（Agent 用，不是上游密钥）</span>
+            <div class="inline">
+              <input id="localApiKey" type="text" readonly />
+              <button type="button" id="btnCopyKey" class="btn ghost">复制</button>
+              <button type="button" id="btnRotate" class="btn ghost">轮换</button>
+            </div>
           </label>
+          <label class="field">
+            <span>从 CMS AI 设置导入 providers JSON（可选）</span>
+            <textarea id="cmsJson" rows="3" placeholder='粘贴 {"providers":[...]}'></textarea>
+          </label>
+          <button type="button" id="btnImportCms" class="btn ghost">预览导入到上游列表</button>
         </div>
-        <label>
-          本地 API Key（填入 Agent；不是上游 Key）
-          <div class="row">
-            <input id="localApiKey" type="text" readonly />
-            <button type="button" id="btnCopyKey" class="ghost">复制</button>
-            <button type="button" id="btnRotate" class="ghost">轮换</button>
-          </div>
-        </label>
-        <p class="hint" id="endpointHint"></p>
-      </section>
+      </details>
 
-      <section class="panel">
-        <div class="row between">
-          <h2>上游（OpenAI 兼容）</h2>
-          <button type="button" id="btnAdd" class="ghost">添加上游</button>
-        </div>
-        <div id="upstreams"></div>
-        <p class="hint">
-          可将 CMS「AI 设置」导出的 providers JSON 粘贴后导入为上游预览，再保存。
-        </p>
-        <label>
-          导入 CMS ai_config / providers JSON
-          <textarea id="cmsJson" rows="4" placeholder='{"providers":[...]}'></textarea>
-        </label>
-        <button type="button" id="btnImportCms" class="ghost">预览导入</button>
-      </section>
-
-      <footer class="actions">
-        <button type="button" id="btnSave" class="primary">保存配置</button>
-        <span id="status" class="status"></span>
+      <footer class="footer">
+        <button type="button" id="btnSave" class="btn primary">保存并应用到 Agent</button>
+        <button type="button" id="btnRewire" class="btn ghost">仅重新接线</button>
+        <span id="status" class="footer-status"></span>
       </footer>
     </main>
     <script src="/app.js" type="module"></script>

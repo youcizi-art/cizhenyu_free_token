@@ -1,4 +1,4 @@
-# 免费 Token 网关 — 配置说明
+# Free Token Gateway — 配置说明
 
 ## 作用
 
@@ -13,11 +13,12 @@ Deploy 启用本工具服务后，会**临时**把 DSH / OpenCode 的聊天模�
 
 ## 步骤
 
-1. 在 Deploy「运营 → 工具箱」安装并**启动服务**。
-2. 打开网关 UI，添加至少一个上游并保存。
-3. 复制「本地 API Key」（给 Agent 用的占位 Key，不是上游 Key）。
-4. 使用 DSH / OpenCode 正常对话（Deploy 已自动改写 baseUrl 时无需手填）。
-5. 用完后在工具箱**停止服务**，Agent 模型配置回退。
+1. 在 Deploy「运营 → 工具箱」安装并启动 **Free Token Gateway**。
+2. 点**配置**：打开本机配置页（与 CMS/CRM 同款顶级窗口）。
+3. **步骤 1** 添加上游：填写 Base URL（如 `https://api.deepseek.com/v1`）、API Key、模型 id（如 `deepseek-chat`）。
+4. **步骤 2** 选择默认模型，点「保存并应用到 Agent」。
+5. **重新打开** DSH / OpenCode（已运行的窗口不会自动切换）。
+6. 用完后在工具箱**停止服务**，Agent 模型配置回退。
 
 ## 注意
 

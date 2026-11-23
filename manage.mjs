@@ -17,6 +17,11 @@ import { createConnection } from "node:net";
 import { join } from "node:path";
 import { loadConfig } from "./lib/config.mjs";
 import {
+  applyOnGatewayUp,
+  restoreOnGatewayDown,
+  reconcileIfStale,
+} from "./lib/agent_wire.mjs";
+import {
   ROOT,
   ensureHome,
   pidPath,
@@ -81,7 +86,13 @@ async function health(port) {
 async function cmdStatus() {
   const port = readPort();
   const h = await health(port);
-  if (h?.ok) {
+  const running = Boolean(h?.ok);
+  try {
+    reconcileIfStale(running);
+  } catch {
+    /* ignore */
+  }
+  if (running) {
     console.log(
       JSON.stringify(
         {
@@ -109,6 +120,11 @@ async function cmdStart() {
   const port = cfg.port || defaultPort();
   const existing = await health(port);
   if (existing?.ok) {
+    try {
+      applyOnGatewayUp();
+    } catch (e) {
+      console.error(`agent wire: ${e?.message || e}`);
+    }
     console.log(`already running: http://127.0.0.1:${port}/`);
     console.log(JSON.stringify({ ok: true, running: true, port }));
     return 0;
@@ -133,6 +149,11 @@ async function cmdStart() {
     await new Promise((r) => setTimeout(r, 250));
     const h = await health(port);
     if (h?.ok) {
+      try {
+        applyOnGatewayUp();
+      } catch (e) {
+        console.error(`agent wire: ${e?.message || e}`);
+      }
       console.log(`started: http://127.0.0.1:${port}/ (pid ${child.pid})`);
       console.log(`log    : ${logFile}`);
       console.log(JSON.stringify({ ok: true, running: true, port, pid: child.pid }));
@@ -145,6 +166,11 @@ async function cmdStart() {
 }
 
 async function cmdStop() {
+  try {
+    restoreOnGatewayDown();
+  } catch (e) {
+    console.error(`agent wire restore: ${e?.message || e}`);
+  }
   const port = readPort();
   const pid = readPid();
   if (pid && alive(pid)) {
