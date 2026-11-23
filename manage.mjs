@@ -17,7 +17,6 @@ import { createConnection } from "node:net";
 import { join } from "node:path";
 import { loadConfig } from "./lib/config.mjs";
 import {
-  applyOnGatewayUp,
   restoreOnGatewayDown,
   reconcileIfStale,
 } from "./lib/agent_wire.mjs";
@@ -120,11 +119,7 @@ async function cmdStart() {
   const port = cfg.port || defaultPort();
   const existing = await health(port);
   if (existing?.ok) {
-    try {
-      applyOnGatewayUp();
-    } catch (e) {
-      console.error(`agent wire: ${e?.message || e}`);
-    }
+    // 不在 start 时自动接线；由配置页「重新接线」显式触发
     console.log(`already running: http://127.0.0.1:${port}/`);
     console.log(JSON.stringify({ ok: true, running: true, port }));
     return 0;
@@ -149,11 +144,6 @@ async function cmdStart() {
     await new Promise((r) => setTimeout(r, 250));
     const h = await health(port);
     if (h?.ok) {
-      try {
-        applyOnGatewayUp();
-      } catch (e) {
-        console.error(`agent wire: ${e?.message || e}`);
-      }
       console.log(`started: http://127.0.0.1:${port}/ (pid ${child.pid})`);
       console.log(`log    : ${logFile}`);
       console.log(JSON.stringify({ ok: true, running: true, port, pid: child.pid }));

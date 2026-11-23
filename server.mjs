@@ -360,11 +360,15 @@ createServer((req, res) => {
   });
 }).listen(port, "127.0.0.1", () => {
   console.log(`cizhenyu-free-token http://127.0.0.1:${port}`);
+  // 不在启动时自动改写 Agent：避免未就绪/错误模型配置拖死 DSH/OpenCode 开窗。
+  // 用户在 UI「保存策略并重新接线」或「重新接线」时再 apply。
   try {
-    const w = applyOnGatewayUp();
-    console.log(`agent wire active=${w.active} models=${(w.models || []).join(",")}`);
+    const w = wireStatus();
+    console.log(
+      `agent wire ready=${(w.models || []).length > 0} models=${(w.models || []).join(",") || "none"}`,
+    );
   } catch (e) {
-    console.log(`agent wire skipped: ${e?.message || e}`);
+    console.log(`agent wire status: ${e?.message || e}`);
   }
 });
 
