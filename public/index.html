@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CIZHENYU Free Token</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main class="wrap">
+      <header class="hero">
+        <p class="eyebrow">CIZHENYU Ops Tool</p>
+        <h1>Free Token Gateway</h1>
+        <p class="lede">
+          本机 OpenAI 兼容网关。在此配置上游 API Key；启用服务后 Deploy 会临时把 DSH / OpenCode
+          指向本网关，关闭后恢复原配置。密钥只保存在本工具 home。
+        </p>
+      </header>
+
+      <section class="panel">
+        <h2>接入信息</h2>
+        <div class="grid">
+          <label>
+            本地端口
+            <input id="port" type="number" min="1024" max="65535" />
+          </label>
+          <label>
+            默认模型 id
+            <input id="defaultModel" type="text" placeholder="例如 gpt-4o-mini" />
+          </label>
+        </div>
+        <label>
+          本地 API Key（填入 Agent；不是上游 Key）
+          <div class="row">
+            <input id="localApiKey" type="text" readonly />
+            <button type="button" id="btnCopyKey" class="ghost">复制</button>
+            <button type="button" id="btnRotate" class="ghost">轮换</button>
+          </div>
+        </label>
+        <p class="hint" id="endpointHint"></p>
+      </section>
+
+      <section class="panel">
+        <div class="row between">
+          <h2>上游（OpenAI 兼容）</h2>
+          <button type="button" id="btnAdd" class="ghost">添加上游</button>
+        </div>
+        <div id="upstreams"></div>
+        <p class="hint">
+          可将 CMS「AI 设置」导出的 providers JSON 粘贴后导入为上游预览，再保存。
+        </p>
+        <label>
+          导入 CMS ai_config / providers JSON
+          <textarea id="cmsJson" rows="4" placeholder='{"providers":[...]}'></textarea>
+        </label>
+        <button type="button" id="btnImportCms" class="ghost">预览导入</button>
+      </section>
+
+      <footer class="actions">
+        <button type="button" id="btnSave" class="primary">保存配置</button>
+        <span id="status" class="status"></span>
+      </footer>
+    </main>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

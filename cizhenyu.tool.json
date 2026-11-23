@@ -1,0 +1,47 @@
+{
+  "protocolVersion": 1,
+  "id": "free-token",
+  "name": "Free Token Gateway",
+  "category": "llm",
+  "tier": "recommended",
+  "description": "Local OpenAI-compatible LLM gateway with UI. When running, temporarily routes DSH/OpenCode chat through the gateway; stopping restores original model settings. Upstream keys stay in the gateway home.",
+  "source": {
+    "github": "https://github.com/youcizi-art/cizhenyu_free_token",
+    "defaultRef": "master"
+  },
+  "install": {
+    "runtime": "node",
+    "steps": [],
+    "readyCheck": ["server.mjs", "manage.mjs", "mcp_launcher.mjs"]
+  },
+  "env": [
+    { "name": "CIZHENYU_AUTH_DIR", "from": "credentialsDir" }
+  ],
+  "mcp": {
+    "transport": "stdio",
+    "command": "node",
+    "args": ["mcp_launcher.mjs"],
+    "cwd": "."
+  },
+  "guides": {
+    "setup": "guides/setup.md",
+    "setupByLocale": {
+      "zh-CN": "guides/setup.md",
+      "zh": "guides/setup.md",
+      "en": "guides/setup.en.md",
+      "en-US": "guides/setup.en.md"
+    }
+  },
+  "health": {
+    "requireCredentials": false,
+    "requireReadyFiles": ["server.mjs", "manage.mjs"]
+  },
+  "actions": [],
+  "defaultLocale": "en",
+  "i18n": {
+    "zh-CN": {
+      "name": "免费 Token 网关",
+      "description": "本机 OpenAI 兼容 LLM 网关（含配置 UI）。启用后临时把 DSH/OpenCode 聊天指向本网关；关闭后恢复原模型配置。上游 API Key 只保存在网关 home。"
+    }
+  }
+}

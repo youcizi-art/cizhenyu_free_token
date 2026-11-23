@@ -1,0 +1,15 @@
+{
+  "name": "cizhenyu-free-token",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "CIZHENYU Free Token — local OpenAI-compatible LLM gateway for DSH / OpenCode",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "manage": "node manage.mjs"
+  },
+  "dependencies": {}
+}
