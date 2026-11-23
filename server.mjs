@@ -1,15 +1,25 @@
 #!/usr/bin/env node
 /**
  * Free Token Gateway
- * - UI:  /
- * - OpenAI:  /v1/chat/completions 、 /v1/models
- * - Anthropic(DSH): /v1/messages 、 /models（origin 根路径）
+ * - UI：商家目录 / 连接 / 轮换
+ * - OpenAI：/v1/*
+ * - Anthropic(DSH)：/v1/messages 、 /models
  */
 import { createServer } from "node:http";
 import { readFileSync, existsSync, writeFileSync } from "node:fs";
 import { join, extname } from "node:path";
 import { randomUUID } from "node:crypto";
-import { loadConfig, saveConfig, publicConfigView, listModelIds } from "./lib/config.mjs";
+import { spawn } from "node:child_process";
+import {
+  loadConfig,
+  saveConfig,
+  publicConfigView,
+  listModelIds,
+  upsertConnection,
+  removeConnection,
+  genId,
+} from "./lib/config.mjs";
+import { publicCatalog, getProvider } from "./lib/catalog.mjs";
 import { proxyChatCompletions, proxyChatCompletionsStream } from "./lib/proxy.mjs";
 import { proxyAnthropicMessages } from "./lib/anthropic.mjs";
 import {
@@ -56,7 +66,6 @@ function checkLocalAuth(req, cfg) {
   return key === cfg.localApiKey;
 }
 
-/** DSH / Anthropic 客户端常用 x-api-key */
 function checkAnyAuth(req, cfg) {
   if (checkLocalAuth(req, cfg)) return true;
   const x = String(req.headers["x-api-key"] || "").trim();
@@ -82,14 +91,12 @@ function serveStatic(res, rel) {
     sendJson(res, 404, { error: "not found" });
     return;
   }
-  const buf = readFileSync(file);
   res.writeHead(200, { "Content-Type": mime(file) });
-  res.end(buf);
+  res.end(readFileSync(file));
 }
 
 function modelsPayload(cfg) {
-  const ids = listModelIds(cfg);
-  return ids.map((id) => ({
+  return listModelIds(cfg).map((id) => ({
     id,
     object: "model",
     created: 0,
@@ -127,11 +134,49 @@ async function handle(req, res) {
       ok: true,
       service: "cizhenyu-free-token",
       port: cfg.port,
-      upstreams: (cfg.upstreams || []).filter((u) => u.enabled !== false).length,
+      connections: (cfg.connections || []).filter((c) => c.enabled !== false).length,
       models: listModelIds(cfg).length,
       wire: wireStatus(),
       pid: process.pid,
     });
+    return;
+  }
+
+  if (path === "/api/catalog" && req.method === "GET") {
+    sendJson(res, 200, publicCatalog());
+    return;
+  }
+
+  /** WebView 常吞掉 target=_blank；用系统浏览器打开外链 */
+  if (path === "/api/open-url" && req.method === "POST") {
+    let body;
+    try {
+      body = await readJson(req);
+    } catch {
+      sendJson(res, 400, { error: "invalid json" });
+      return;
+    }
+    const url = String(body.url || "").trim();
+    if (!/^https?:\/\//i.test(url)) {
+      sendJson(res, 400, { error: "url must be http(s)" });
+      return;
+    }
+    try {
+      if (process.platform === "win32") {
+        spawn("cmd", ["/c", "start", "", url], {
+          detached: true,
+          stdio: "ignore",
+          windowsHide: true,
+        }).unref();
+      } else if (process.platform === "darwin") {
+        spawn("open", [url], { detached: true, stdio: "ignore" }).unref();
+      } else {
+        spawn("xdg-open", [url], { detached: true, stdio: "ignore" }).unref();
+      }
+      sendJson(res, 200, { ok: true });
+    } catch (e) {
+      sendJson(res, 500, { ok: false, error: String(e?.message || e) });
+    }
     return;
   }
 
@@ -169,26 +214,20 @@ async function handle(req, res) {
       if (Number.isFinite(p) && p > 0) next.port = p;
     }
     if (typeof body.defaultModel === "string") next.defaultModel = body.defaultModel.trim();
+    if (body.strategy && typeof body.strategy === "object") {
+      next.strategy = { ...next.strategy, ...body.strategy };
+    }
     if (body.rotateLocalKey === true) {
       next.localApiKey = `sk-cizhenyu-${randomUUID().replace(/-/g, "").slice(0, 32)}`;
     }
-    if (Array.isArray(body.upstreams)) {
-      next.upstreams = body.upstreams.map((u, i) => {
-        const prev = (cfg.upstreams || []).find((x) => x.id === u.id);
+    if (Array.isArray(body.connections)) {
+      next.connections = body.connections.map((c, i) => {
+        const prev = (cfg.connections || []).find((x) => x.id === c.id);
         const apiKey =
-          u.apiKey === undefined || u.apiKey === null || u.apiKey === ""
+          c.apiKey === undefined || c.apiKey === null || c.apiKey === ""
             ? prev?.apiKey || ""
-            : String(u.apiKey);
-        return {
-          id: String(u.id || `up-${i + 1}`),
-          name: String(u.name || `上游 ${i + 1}`),
-          baseUrl: String(u.baseUrl || "").trim(),
-          apiKey,
-          models: Array.isArray(u.models)
-            ? u.models.map((m) => String(m).trim()).filter(Boolean)
-            : [],
-          enabled: u.enabled !== false,
-        };
+            : String(c.apiKey);
+        return { ...c, apiKey };
       });
     }
     const saved = saveConfig(next);
@@ -197,7 +236,7 @@ async function handle(req, res) {
     return;
   }
 
-  if (path === "/api/import-cms-preview" && req.method === "POST") {
+  if (path === "/api/connections" && req.method === "POST") {
     let body;
     try {
       body = await readJson(req);
@@ -205,30 +244,35 @@ async function handle(req, res) {
       sendJson(res, 400, { error: "invalid json" });
       return;
     }
-    const providers = body?.providers || body?.ai_config?.providers || [];
-    if (!Array.isArray(providers)) {
-      sendJson(res, 400, { error: "providers array required" });
-      return;
-    }
-    const mapped = providers.map((p, i) => {
-      const models = Array.isArray(p.models)
-        ? p.models.map((m) => (typeof m === "string" ? m : m?.id || m?.name)).filter(Boolean)
-        : [];
-      return {
-        id: String(p.id || `cms-${i + 1}`),
-        name: String(p.name || p.type || `CMS ${i + 1}`),
-        baseUrl: String(p.baseUrl || "").trim(),
-        apiKey: String(p.apiKey || "").trim(),
-        models,
-        enabled: true,
-        source: "cms_ai_config",
-      };
+    const providerId = String(body.providerId || "custom").trim();
+    const prov = getProvider(providerId);
+    const saved = upsertConnection(cfg, {
+      id: body.id || genId("conn"),
+      providerId,
+      label: body.label || prov?.name || "连接",
+      apiKey: body.apiKey || "",
+      baseUrl: body.baseUrl || prov?.baseUrl || "",
+      models:
+        Array.isArray(body.models) && body.models.length
+          ? body.models
+          : [...(prov?.models || [])],
+      enabled: body.enabled !== false,
+      priority: body.priority,
+      tier: body.tier || prov?.tier || "paid",
     });
-    sendJson(res, 200, { upstreams: mapped });
+    const wire = tryApplyWire();
+    sendJson(res, 200, { ...publicConfigView(saved), wire });
     return;
   }
 
-  // DSH 模型列表：GET {origin}/models
+  if (path.startsWith("/api/connections/") && req.method === "DELETE") {
+    const id = decodeURIComponent(path.slice("/api/connections/".length));
+    const saved = removeConnection(cfg, id);
+    const wire = tryApplyWire();
+    sendJson(res, 200, { ...publicConfigView(saved), wire });
+    return;
+  }
+
   if (path === "/models" && req.method === "GET") {
     if (!checkAnyAuth(req, cfg)) {
       sendJson(res, 401, { error: { type: "authentication_error", message: "Invalid API key" } });
@@ -247,7 +291,6 @@ async function handle(req, res) {
     return;
   }
 
-  // DSH Anthropic Messages
   if (path === "/v1/messages" && req.method === "POST") {
     if (!checkAnyAuth(req, cfg)) {
       sendJson(res, 401, {
@@ -266,7 +309,7 @@ async function handle(req, res) {
       });
       return;
     }
-    const result = await proxyAnthropicMessages(cfg, body);
+    const result = await proxyAnthropicMessages(loadConfig(), body);
     sendJson(res, result.status, result.body);
     return;
   }
@@ -283,11 +326,12 @@ async function handle(req, res) {
       sendJson(res, 400, { error: { message: "invalid json" } });
       return;
     }
+    const live = loadConfig();
     if (body.stream) {
-      await proxyChatCompletionsStream(cfg, body, res);
+      await proxyChatCompletionsStream(live, body, res);
       return;
     }
-    const result = await proxyChatCompletions(cfg, body);
+    const result = await proxyChatCompletions(live, body);
     sendJson(res, result.status, result.body);
     return;
   }
@@ -297,7 +341,7 @@ async function handle(req, res) {
     return;
   }
   if (path === "/app.js" || path === "/style.css") {
-    serveStatic(res, path.replace(/^\//, ""));
+    serveStatic(res, path.slice(1));
     return;
   }
 
@@ -310,24 +354,17 @@ boot.port = port;
 saveConfig(boot);
 writeFileSync(portPath(), String(port), "utf8");
 
-const server = createServer((req, res) => {
+createServer((req, res) => {
   handle(req, res).catch((e) => {
-    if (!res.headersSent) {
-      sendJson(res, 500, { error: String(e?.message || e) });
-    }
+    if (!res.headersSent) sendJson(res, 500, { error: String(e?.message || e) });
   });
-});
-
-server.listen(port, "127.0.0.1", () => {
+}).listen(port, "127.0.0.1", () => {
   console.log(`cizhenyu-free-token http://127.0.0.1:${port}`);
-  console.log(`  UI        http://127.0.0.1:${port}/`);
-  console.log(`  OpenAI    http://127.0.0.1:${port}/v1`);
-  console.log(`  Anthropic http://127.0.0.1:${port}/v1/messages`);
   try {
     const w = applyOnGatewayUp();
-    console.log(`  agent wire active=${w.active} model=${w.defaultModel || ""}`);
+    console.log(`agent wire active=${w.active} models=${(w.models || []).join(",")}`);
   } catch (e) {
-    console.log(`  agent wire skipped: ${e?.message || e}`);
+    console.log(`agent wire skipped: ${e?.message || e}`);
   }
 });
 

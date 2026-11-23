@@ -11,71 +11,116 @@
       <header class="header">
         <div>
           <h1>Free Token Gateway</h1>
-          <p class="subtitle">
-            把你自己的 API（OpenAI 兼容）接到本机网关。保存后会临时改写 DSH / OpenCode
-            的模型入口；停止服务后自动恢复。
-          </p>
         </div>
-        <div id="wireBadge" class="badge">检查中…</div>
+        <div id="wireBadge" class="badge">…</div>
       </header>
 
-      <section class="card" id="statusCard">
-        <h2>当前状态</h2>
-        <ul class="status-list" id="statusList"></ul>
-        <p class="tip" id="statusTip">改写配置后请重新打开 DSH / OpenCode，正在运行的窗口不会自动切换模型。</p>
-      </section>
+      <nav class="tabs" role="tablist">
+        <button type="button" class="tab active" data-tab="catalog">商家目录</button>
+        <button type="button" class="tab" data-tab="connections">我的连接</button>
+        <button type="button" class="tab" data-tab="strategy">策略与状态</button>
+      </nav>
 
-      <section class="card">
-        <div class="card-head">
-          <div>
-            <p class="step">步骤 1</p>
-            <h2>配置上游 API</h2>
-            <p class="desc">填写你实际调用大模型的地址、密钥和模型名称。至少启用一条上游。</p>
-          </div>
-          <button type="button" id="btnAdd" class="btn">添加上游</button>
+      <section id="panel-catalog" class="panel active">
+        <div class="filters">
+          <button type="button" class="chip active" data-tier="all">全部</button>
+          <button type="button" class="chip" data-tier="free">免费</button>
+          <button type="button" class="chip" data-tier="trial">试用</button>
+          <button type="button" class="chip" data-tier="cheap">廉价</button>
+          <button type="button" class="chip" data-tier="paid">付费/自定义</button>
         </div>
-        <div id="upstreams" class="upstreams"></div>
+        <div id="catalogList" class="cards"></div>
       </section>
 
-      <section class="card">
-        <p class="step">步骤 2</p>
-        <h2>默认模型</h2>
-        <p class="desc">Agent 启动后优先使用的模型 id（必须来自上面某一条上游的模型列表）。</p>
-        <label class="field">
-          <span>默认模型</span>
-          <select id="defaultModel"></select>
-        </label>
+      <section id="panel-connections" class="panel">
+        <p class="lead">已连接的账户会参与轮换。额度触发限流时自动冷却并切换下一家。</p>
+        <div id="connList" class="stack"></div>
       </section>
 
-      <details class="card advanced">
-        <summary>高级设置（一般不用改）</summary>
-        <div class="advanced-body">
+      <section id="panel-strategy" class="panel">
+        <div class="card">
+          <h2>轮换策略</h2>
+          <label class="field">
+            <span>模式</span>
+            <select id="strategyMode">
+              <option value="priority">按优先级（数字越小越先）</option>
+              <option value="round_robin">轮询可用连接</option>
+            </select>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="preferFree" />
+            优先使用 free / trial 层
+          </label>
+          <label class="field">
+            <span>限流冷却（秒）</span>
+            <input id="cooldownSeconds" type="number" min="30" max="3600" />
+          </label>
+          <label class="field">
+            <span>默认模型</span>
+            <select id="defaultModel"></select>
+          </label>
+          <button type="button" id="btnSaveStrategy" class="btn primary">保存策略并重新接线</button>
+        </div>
+        <div class="card">
+          <h2>Agent 接线</h2>
+          <ul id="statusList" class="status-list"></ul>
+          <p class="muted small">改写后请重新打开 DSH / OpenCode。</p>
+          <div class="row">
+            <button type="button" id="btnRewire" class="btn">重新接线</button>
+          </div>
+        </div>
+        <details class="card">
+          <summary>高级</summary>
           <label class="field">
             <span>本机端口</span>
             <input id="port" type="number" min="1024" max="65535" />
           </label>
           <label class="field">
-            <span>网关本地 Key（Agent 用，不是上游密钥）</span>
-            <div class="inline">
-              <input id="localApiKey" type="text" readonly />
+            <span>网关本地 Key</span>
+            <div class="row">
+              <input id="localApiKey" readonly />
               <button type="button" id="btnCopyKey" class="btn ghost">复制</button>
-              <button type="button" id="btnRotate" class="btn ghost">轮换</button>
             </div>
           </label>
-          <label class="field">
-            <span>从 CMS AI 设置导入 providers JSON（可选）</span>
-            <textarea id="cmsJson" rows="3" placeholder='粘贴 {"providers":[...]}'></textarea>
-          </label>
-          <button type="button" id="btnImportCms" class="btn ghost">预览导入到上游列表</button>
-        </div>
-      </details>
+          <button type="button" id="btnSaveAdvanced" class="btn">保存高级设置</button>
+        </details>
+      </section>
 
-      <footer class="footer">
-        <button type="button" id="btnSave" class="btn primary">保存并应用到 Agent</button>
-        <button type="button" id="btnRewire" class="btn ghost">仅重新接线</button>
-        <span id="status" class="footer-status"></span>
-      </footer>
+      <p id="toast" class="toast" hidden></p>
     </main>
+
+    <dialog id="connectDialog">
+      <form id="connectForm" class="dialog">
+        <h3 id="connectTitle">填入密钥</h3>
+        <p id="connectHint" class="muted small"></p>
+        <input type="hidden" id="connProviderId" />
+        <label class="field">
+          <span>显示名称</span>
+          <input id="connLabel" required />
+        </label>
+        <label class="field" id="baseUrlField">
+          <span>Base URL</span>
+          <input id="connBaseUrl" />
+        </label>
+        <label class="field">
+          <span>API Key</span>
+          <input id="connApiKey" type="password" required autocomplete="off" />
+        </label>
+        <label class="field">
+          <span>模型 id（逗号分隔）</span>
+          <input id="connModels" placeholder="例如 llama-3.3-70b-versatile" />
+        </label>
+        <label class="field">
+          <span>优先级（越小越先）</span>
+          <input id="connPriority" type="number" value="10" />
+        </label>
+        <div class="row end">
+          <button type="button" id="btnConnectCancel" class="btn ghost" value="cancel">取消</button>
+          <button type="submit" class="btn primary">保存连接</button>
+        </div>
+      </form>
+    </dialog>
+
     <script src="/app.js" type="module"></script>
   </body>
 </html>

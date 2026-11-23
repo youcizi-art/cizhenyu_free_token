@@ -1,7 +1,21 @@
 const $ = (id) => document.getElementById(id);
 
-function uid() {
-  return `up-${Math.random().toString(16).slice(2, 10)}`;
+let catalog = { providers: [] };
+let config = null;
+let tierFilter = "all";
+
+function toast(msg) {
+  const el = $("toast");
+  el.textContent = msg;
+  el.hidden = false;
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => {
+    el.hidden = true;
+  }, 3200);
+}
+
+function tierLabel(t) {
+  return ({ free: "免费", trial: "试用", cheap: "廉价", paid: "付费" }[t] || t);
 }
 
 function escapeHtml(s) {
@@ -12,273 +26,342 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;");
 }
 
-function escapeAttr(s) {
-  return escapeHtml(s).replaceAll("'", "&#39;");
-}
-
-let state = null;
-
-function allModelIds() {
-  const out = [];
-  for (const u of state.upstreams || []) {
-    if (u.enabled === false) continue;
-    for (const m of u.models || []) {
-      if (m && !out.includes(m)) out.push(m);
-    }
-  }
-  return out;
-}
-
-function renderDefaultModel() {
-  const sel = $("defaultModel");
-  const models = allModelIds();
-  const cur = state.defaultModel || models[0] || "";
-  sel.innerHTML = "";
-  if (!models.length) {
-    const opt = document.createElement("option");
-    opt.value = "";
-    opt.textContent = "请先在上游中填写模型 id";
-    sel.appendChild(opt);
-    return;
-  }
-  for (const m of models) {
-    const opt = document.createElement("option");
-    opt.value = m;
-    opt.textContent = m;
-    if (m === cur) opt.selected = true;
-    sel.appendChild(opt);
-  }
+function connectedCount(providerId) {
+  return (config?.connections || []).filter((c) => c.providerId === providerId && c.hasApiKey).length;
 }
 
 function renderWire(wire) {
   const badge = $("wireBadge");
   const list = $("statusList");
-  const tip = $("statusTip");
   if (!wire) {
-    badge.textContent = "状态未知";
+    badge.textContent = "未知";
     badge.className = "badge";
-    list.innerHTML = "";
     return;
   }
-  const ready =
-    wire.active &&
-    (wire.models || []).length > 0 &&
-    wire.upstreamCount > 0 &&
-    (wire.dshWired || wire.opencodeWired || (!wire.dshInstalled && !wire.opencodeInstalled));
-  badge.textContent = wire.active ? (ready ? "已接线" : "已启动，待完善") : "未接线";
-  badge.className = wire.active && ready ? "badge ok" : "badge";
-
+  const ok = wire.active && (wire.models || []).length > 0;
+  badge.textContent = ok ? `已接线 · ${(wire.models || []).length} 模型` : wire.active ? "已启动，待连接商家" : "未接线";
+  badge.className = ok ? "badge ok" : "badge";
   const rows = [
-    `网关端口：${wire.gatewayPort}`,
-    `上游数量：${wire.upstreamCount}`,
-    `可用模型：${(wire.models || []).join("、") || "无"}`,
-    `默认模型：${wire.defaultModel || "未设置"}`,
-    `DSH：${wire.dshInstalled ? (wire.dshWired ? "已改写模型入口" : "已安装但未接线") : "未安装"}`,
-    `OpenCode：${wire.opencodeInstalled ? (wire.opencodeWired ? "已改写模型入口" : "已安装但未接线") : "未安装"}`,
+    `可用连接：${wire.upstreamCount ?? (config?.connections || []).filter((c) => c.enabled && c.hasApiKey).length}`,
+    `模型：${(wire.models || []).join("、") || "无"}`,
+    `默认模型：${wire.defaultModel || "未设"}`,
+    `DSH：${wire.dshInstalled ? (wire.dshWired ? "已改写" : "未接线") : "未安装"}`,
+    `OpenCode：${wire.opencodeInstalled ? (wire.opencodeWired ? "已改写" : "未接线") : "未安装"}`,
   ];
   list.innerHTML = rows.map((r) => `<li>${escapeHtml(r)}</li>`).join("");
-  tip.textContent =
-    wire.note ||
-    "改写配置后请重新打开 DSH / OpenCode，正在运行的窗口不会自动切换模型。";
 }
 
-function renderUpstreams() {
-  const root = $("upstreams");
-  root.innerHTML = "";
-  const list = state.upstreams || [];
+async function openExternal(url) {
+  const u = String(url || "").trim();
+  if (!/^https?:\/\//i.test(u)) return;
+  try {
+    const res = await fetch("/api/open-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: u }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.ok === false) throw new Error(data.error || "open failed");
+    toast("已在系统浏览器打开");
+  } catch (e) {
+    try {
+      await navigator.clipboard.writeText(u);
+      toast("无法自动打开，链接已复制到剪贴板");
+    } catch {
+      toast(`请手动打开：${u}`);
+    }
+  }
+}
+
+function renderCatalog() {
+  const root = $("catalogList");
+  const list = (catalog.providers || []).filter((p) => tierFilter === "all" || p.tier === tierFilter);
   if (!list.length) {
-    root.innerHTML =
-      '<div class="empty">还没有上游。点击「添加上游」，填入你的 API 地址、密钥和模型名称。</div>';
-    renderDefaultModel();
+    root.innerHTML = '<div class="empty">该分类下暂无商家</div>';
     return;
   }
-  for (const u of list) {
-    const el = document.createElement("div");
-    el.className = "upstream";
-    el.innerHTML = `
-      <div class="upstream-top">
-        <strong>${escapeHtml(u.name || "未命名上游")}</strong>
-        <button type="button" class="btn danger" data-rm="${escapeAttr(u.id)}">删除</button>
-      </div>
-      <label class="field">
-        <span>显示名称（方便你识别，例如「DeepSeek」「OpenAI」）</span>
-        <input data-f="name" data-id="${escapeAttr(u.id)}" value="${escapeAttr(u.name || "")}" placeholder="例如 DeepSeek" />
-      </label>
-      <label class="field">
-        <span>接口地址 Base URL（OpenAI 兼容，通常以 /v1 结尾）</span>
-        <input data-f="baseUrl" data-id="${escapeAttr(u.id)}" value="${escapeAttr(u.baseUrl || "")}" placeholder="https://api.deepseek.com/v1" />
-        <p class="field-hint">常见示例：https://api.openai.com/v1 、 https://api.deepseek.com/v1</p>
-      </label>
-      <label class="field">
-        <span>上游 API Key（你的真实密钥，只保存在本机网关）</span>
-        <input data-f="apiKey" data-id="${escapeAttr(u.id)}" type="password" placeholder="${u.hasApiKey ? "已保存，留空表示不修改" : "sk-…"}" autocomplete="off" />
-      </label>
-      <label class="field">
-        <span>模型 id 列表（逗号分隔，必须是上游真实支持的模型名）</span>
-        <input data-f="models" data-id="${escapeAttr(u.id)}" value="${escapeAttr((u.models || []).join(", "))}" placeholder="例如 deepseek-chat, deepseek-reasoner" />
-        <p class="field-hint">不要填「default」。Agent 里看到的模型名就是这里填的 id。</p>
-      </label>
-      <label class="check">
-        <input type="checkbox" data-f="enabled" data-id="${escapeAttr(u.id)}" ${u.enabled !== false ? "checked" : ""} />
-        启用这条上游
-      </label>
-    `;
-    root.appendChild(el);
+  root.innerHTML = list
+    .map((p) => {
+      const n = connectedCount(p.id);
+      const models = p.models || [];
+      const preview = models.slice(0, 4).map(escapeHtml).join(", ") || "连接时自行填写模型";
+      const more =
+        models.length > 4
+          ? `<details class="model-more"><summary>全部 ${models.length} 个模型</summary><ul>${models
+              .map((m) => `<li><code>${escapeHtml(m)}</code></li>`)
+              .join("")}</ul></details>`
+          : models.length
+            ? `<p class="models"><strong>模型：</strong>${preview}</p>`
+            : `<p class="models"><strong>模型：</strong>连接时自行填写</p>`;
+      return `
+      <article class="provider-card" data-id="${escapeHtml(p.id)}">
+        <span class="tier ${escapeHtml(p.tier)}">${tierLabel(p.tier)}</span>
+        <h3>${escapeHtml(p.name)}</h3>
+        <p>${escapeHtml(p.notes || "")}</p>
+        ${models.length > 4 ? `<p class="models"><strong>模型：</strong>${preview} …</p>${more}` : more}
+        <p class="muted small">${escapeHtml(p.quotaHint || "")}${n ? ` · 已连接 ${n}` : ""}</p>
+        <div class="row">
+          ${
+            p.signupUrl
+              ? `<button type="button" class="btn" data-open="${escapeHtml(p.signupUrl)}">去注册</button>`
+              : ""
+          }
+          ${
+            p.docsUrl
+              ? `<button type="button" class="btn ghost" data-open="${escapeHtml(p.docsUrl)}">文档</button>`
+              : ""
+          }
+          <button type="button" class="btn primary" data-connect="${escapeHtml(p.id)}">填入密钥</button>
+        </div>
+      </article>`;
+    })
+    .join("");
+
+  root.querySelectorAll("[data-connect]").forEach((btn) => {
+    btn.addEventListener("click", () => openConnect(btn.getAttribute("data-connect")));
+  });
+  root.querySelectorAll("[data-open]").forEach((btn) => {
+    btn.addEventListener("click", () => openExternal(btn.getAttribute("data-open")));
+  });
+}
+
+function renderConnections() {
+  const root = $("connList");
+  const list = config?.connections || [];
+  if (!list.length) {
+    root.innerHTML =
+      '<div class="empty">还没有连接。请到「商家目录」注册并填入密钥。</div>';
+    return;
   }
-  root.querySelectorAll("[data-rm]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const id = btn.getAttribute("data-rm");
-      state.upstreams = state.upstreams.filter((x) => x.id !== id);
-      renderUpstreams();
+  root.innerHTML = list
+    .map((c) => {
+      const cooling = c.cooling ? " · 冷却中" : "";
+      return `
+      <article class="conn-card">
+        <div class="top">
+          <div>
+            <strong>${escapeHtml(c.label)}</strong>
+            <span class="tier ${escapeHtml(c.tier)}">${tierLabel(c.tier)}</span>
+          </div>
+          <button type="button" class="btn danger" data-del="${escapeHtml(c.id)}">删除</button>
+        </div>
+        <div class="conn-meta">
+          商家：${escapeHtml(c.providerId)} · 优先级 ${c.priority}
+          ${c.enabled === false ? " · 已停用" : " · 启用"}${cooling}<br/>
+          ${escapeHtml(c.baseUrl)}<br/>
+          模型：${escapeHtml((c.models || []).join(", ") || "未设")} · Key：${c.hasApiKey ? "已保存" : "缺失"}
+        </div>
+        <label class="check">
+          <input type="checkbox" data-en="${escapeHtml(c.id)}" ${c.enabled !== false ? "checked" : ""} />
+          参与轮换
+        </label>
+      </article>`;
+    })
+    .join("");
+
+  root.querySelectorAll("[data-del]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.getAttribute("data-del");
+      const res = await fetch(`/api/connections/${encodeURIComponent(id)}`, { method: "DELETE" });
+      const data = await res.json();
+      applyConfigPayload(data);
+      toast("已删除连接");
     });
   });
-  root.querySelectorAll('[data-f="models"]').forEach((input) => {
-    input.addEventListener("input", () => {
-      collectFromDom(false);
-      renderDefaultModel();
+  root.querySelectorAll("[data-en]").forEach((input) => {
+    input.addEventListener("change", async () => {
+      const id = input.getAttribute("data-en");
+      const conn = (config.connections || []).find((c) => c.id === id);
+      if (!conn) return;
+      const body = {
+        ...config,
+        connections: config.connections.map((c) =>
+          c.id === id ? { ...c, enabled: input.checked, apiKey: "" } : { ...c, apiKey: "" },
+        ),
+      };
+      // 保留密钥：服务端用空 apiKey 表示不改；但我们需要带 enabled
+      const res = await fetch("/api/config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          defaultModel: config.defaultModel,
+          strategy: config.strategy,
+          connections: config.connections.map((c) => ({
+            ...c,
+            enabled: c.id === id ? input.checked : c.enabled,
+            apiKey: "",
+          })),
+        }),
+      });
+      applyConfigPayload(await res.json());
+      toast("已更新");
     });
   });
-  renderDefaultModel();
 }
 
-function collectFromDom(writeBack = true) {
-  const next = structuredClone(state);
-  next.port = Number($("port").value) || next.port;
-  next.defaultModel = $("defaultModel").value.trim();
-  next.localApiKey = $("localApiKey").value.trim();
-  const map = new Map((next.upstreams || []).map((u) => [u.id, { ...u }]));
-  document.querySelectorAll("[data-f][data-id]").forEach((input) => {
-    const id = input.getAttribute("data-id");
-    const f = input.getAttribute("data-f");
-    const u = map.get(id);
-    if (!u) return;
-    if (f === "enabled") u.enabled = input.checked;
-    else if (f === "models") {
-      u.models = String(input.value || "")
-        .split(",")
-        .map((x) => x.trim())
-        .filter(Boolean);
-    } else if (f === "apiKey") {
-      if (input.value) u.apiKey = input.value;
-      else delete u.apiKey;
-    } else {
-      u[f] = input.value;
+function fillStrategy() {
+  $("strategyMode").value = config.strategy?.mode || "priority";
+  $("preferFree").checked = config.strategy?.preferFree !== false;
+  $("cooldownSeconds").value = config.strategy?.cooldownSeconds || 120;
+  $("port").value = config.port;
+  $("localApiKey").value = config.localApiKey || "";
+  const models = [];
+  for (const c of config.connections || []) {
+    if (!c.enabled || !c.hasApiKey) continue;
+    for (const m of c.models || []) if (m && !models.includes(m)) models.push(m);
+  }
+  const sel = $("defaultModel");
+  sel.innerHTML = "";
+  if (!models.length) {
+    const o = document.createElement("option");
+    o.value = "";
+    o.textContent = "请先连接商家";
+    sel.appendChild(o);
+  } else {
+    for (const m of models) {
+      const o = document.createElement("option");
+      o.value = m;
+      o.textContent = m;
+      if (m === config.defaultModel) o.selected = true;
+      sel.appendChild(o);
     }
-  });
-  next.upstreams = [...map.values()];
-  if (writeBack) state = next;
-  return next;
+  }
 }
 
-function setStatus(msg) {
-  $("status").textContent = msg || "";
+function wireFromPayload(data) {
+  if (!data) return null;
+  if (data.wire?.wire) return data.wire.wire;
+  if (data.wire && (data.wire.active != null || data.wire.models)) return data.wire;
+  return data;
+}
+
+function applyConfigPayload(data) {
+  config = data;
+  renderWire(wireFromPayload(data));
+  renderCatalog();
+  renderConnections();
+  fillStrategy();
+}
+
+function openConnect(providerId) {
+  const p = (catalog.providers || []).find((x) => x.id === providerId);
+  if (!p) return;
+  $("connProviderId").value = p.id;
+  $("connectTitle").textContent = `连接 ${p.name}`;
+  $("connectHint").textContent = p.signupUrl
+    ? "若尚未注册，请先点卡片上的「去注册」，拿到 Key 后再粘贴到这里。"
+    : "填写自定义 OpenAI 兼容地址与密钥。";
+  $("connLabel").value = p.name;
+  $("connBaseUrl").value = p.baseUrl || "";
+  $("baseUrlField").style.display = p.id === "custom" || !p.baseUrl ? "block" : "block";
+  $("connApiKey").value = "";
+  $("connModels").value = (p.models || []).join(", ");
+  $("connPriority").value = p.tier === "free" ? 10 : p.tier === "trial" ? 20 : 30;
+  $("connectDialog").showModal();
 }
 
 async function load() {
-  const res = await fetch("/api/config");
-  state = await res.json();
-  $("port").value = state.port;
-  $("localApiKey").value = state.localApiKey || "";
-  renderUpstreams();
-  renderWire(state.wire);
+  const [cat, cfg] = await Promise.all([
+    fetch("/api/catalog").then((r) => r.json()),
+    fetch("/api/config").then((r) => r.json()),
+  ]);
+  catalog = cat;
+  applyConfigPayload(cfg);
 }
 
-$("btnAdd").addEventListener("click", () => {
-  state.upstreams = state.upstreams || [];
-  state.upstreams.push({
-    id: uid(),
-    name: "我的上游",
-    baseUrl: "https://api.deepseek.com/v1",
-    models: ["deepseek-chat"],
-    enabled: true,
-    hasApiKey: false,
+document.querySelectorAll(".tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
+    tab.classList.add("active");
+    $(`panel-${tab.dataset.tab}`).classList.add("active");
   });
-  renderUpstreams();
 });
 
-$("btnSave").addEventListener("click", async () => {
-  const body = collectFromDom(true);
-  if (!(body.upstreams || []).some((u) => u.enabled !== false && (u.models || []).length)) {
-    setStatus("请至少启用一条上游，并填写模型 id");
-    return;
-  }
-  setStatus("保存中…");
-  const res = await fetch("/api/config", {
-    method: "PUT",
+document.querySelectorAll(".chip").forEach((chip) => {
+  chip.addEventListener("click", () => {
+    document.querySelectorAll(".chip").forEach((c) => c.classList.remove("active"));
+    chip.classList.add("active");
+    tierFilter = chip.dataset.tier;
+    renderCatalog();
+  });
+});
+
+$("btnConnectCancel").addEventListener("click", () => $("connectDialog").close());
+
+$("connectForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const providerId = $("connProviderId").value;
+  const models = $("connModels").value
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+  const res = await fetch("/api/connections", {
+    method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      providerId,
+      label: $("connLabel").value.trim(),
+      baseUrl: $("connBaseUrl").value.trim(),
+      apiKey: $("connApiKey").value.trim(),
+      models,
+      priority: Number($("connPriority").value) || 10,
+      enabled: true,
+    }),
   });
   const data = await res.json();
   if (!res.ok) {
-    setStatus(data.error || "保存失败");
+    toast(data.error || "保存失败");
     return;
   }
-  state = data;
-  $("localApiKey").value = state.localApiKey || "";
-  renderUpstreams();
-  const wire = data.wire?.wire || data.wire;
-  renderWire(wire);
-  if (data.wire?.ok === false) {
-    setStatus(`已保存，但接线失败：${data.wire.error}`);
-  } else {
-    setStatus("已保存并应用到 Agent。请重新打开 DSH / OpenCode。");
-  }
+  $("connectDialog").close();
+  applyConfigPayload(data);
+  toast("已连接。请到「我的连接 / 策略」确认，并重新打开 Agent。");
+  document.querySelector('.tab[data-tab="connections"]').click();
 });
 
-$("btnRewire").addEventListener("click", async () => {
-  setStatus("重新接线…");
-  const res = await fetch("/api/wire/apply", { method: "POST" });
-  const data = await res.json();
-  renderWire(data.wire || data);
-  setStatus(data.ok === false ? `接线失败：${data.error}` : "已重新接线。请重新打开 Agent。");
-});
-
-$("btnRotate").addEventListener("click", async () => {
-  const body = collectFromDom(true);
-  body.rotateLocalKey = true;
+$("btnSaveStrategy").addEventListener("click", async () => {
   const res = await fetch("/api/config", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      defaultModel: $("defaultModel").value,
+      strategy: {
+        mode: $("strategyMode").value,
+        preferFree: $("preferFree").checked,
+        cooldownSeconds: Number($("cooldownSeconds").value) || 120,
+      },
+      connections: (config.connections || []).map((c) => ({ ...c, apiKey: "" })),
+    }),
   });
-  state = await res.json();
-  $("localApiKey").value = state.localApiKey || "";
-  renderWire(state.wire?.wire || state.wire);
-  setStatus("已轮换本地 Key，并重新接线");
+  applyConfigPayload(await res.json());
+  toast("策略已保存并尝试重新接线");
+});
+
+$("btnSaveAdvanced").addEventListener("click", async () => {
+  const res = await fetch("/api/config", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      port: Number($("port").value),
+      defaultModel: config.defaultModel,
+      strategy: config.strategy,
+      connections: (config.connections || []).map((c) => ({ ...c, apiKey: "" })),
+    }),
+  });
+  applyConfigPayload(await res.json());
+  toast("高级设置已保存（改端口需重启服务）");
+});
+
+$("btnRewire").addEventListener("click", async () => {
+  const data = await fetch("/api/wire/apply", { method: "POST" }).then((r) => r.json());
+  renderWire(data.wire || data);
+  toast(data.ok === false ? `接线失败：${data.error}` : "已重新接线");
 });
 
 $("btnCopyKey").addEventListener("click", async () => {
   await navigator.clipboard.writeText($("localApiKey").value);
-  setStatus("已复制本地 Key");
+  toast("已复制网关本地 Key");
 });
 
-$("btnImportCms").addEventListener("click", async () => {
-  let payload;
-  try {
-    payload = JSON.parse($("cmsJson").value || "{}");
-  } catch {
-    setStatus("JSON 无效");
-    return;
-  }
-  const res = await fetch("/api/import-cms-preview", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    setStatus(data.error || "导入失败");
-    return;
-  }
-  for (const u of data.upstreams || []) {
-    state.upstreams.push({
-      ...u,
-      id: uid(),
-      hasApiKey: Boolean(u.apiKey),
-    });
-  }
-  renderUpstreams();
-  setStatus(`已加入 ${data.upstreams?.length || 0} 条上游，请检查密钥后保存`);
-});
-
-load().catch((e) => setStatus(String(e)));
+load().catch((e) => toast(String(e)));

@@ -2,25 +2,33 @@
 
 ## What it does
 
-Runs a local OpenAI-compatible gateway (default port `20188`):
+Local curated LLM gateway (default port `20188`):
+
+1. **Catalog** (static `data/providers.json`): free / trial / cheap API signup links  
+2. **Connections**: paste keys; gateway rotates on quota / 429 with cooldown  
+3. **Wire**: while the Deploy service runs, DSH / OpenCode chat points at this gateway; stop restores prior settings  
+
+Upstream secrets stay in `home/config.json` only.
 
 - UI: `http://127.0.0.1:20188/`
-- API: `http://127.0.0.1:20188/v1`
-
-Configure upstreams (any OpenAI-compatible `baseUrl` + API key) in the UI. You may import CMS AI settings `providers` JSON as upstreams.
-
-When Deploy starts this service, it temporarily points DSH / OpenCode chat at the gateway. Stopping restores the previous Agent model settings. Upstream secrets stay in this tool’s `home/config.json`.
+- OpenAI: `/v1/chat/completions`, `/v1/models`
+- Anthropic (DSH): `/v1/messages`, `/models`
 
 ## Steps
 
-1. Install **Free Token Gateway** in Deploy Ops → Tools.
-2. Click **Configure**: Deploy starts the gateway if needed and opens its config UI in a top-level WebView (same pattern as CMS/CRM).
-3. Add at least one upstream and save.
-4. Chat in DSH / OpenCode as usual (Deploy rewrites baseURL while the service runs).
-5. **Stop** the service to restore original Agent model config.
+1. Install and **start** Free Token Gateway in Deploy Ops → Tools.
+2. Click **Configure** (top-level WebView, same pattern as CMS/CRM).
+3. In **Catalog**, open signup links, create keys, then **Connect** and paste them.
+4. Under **Strategy**, confirm default model / rotation; rewire if needed.
+5. **Reopen** DSH / OpenCode.
+6. **Stop** the service to restore original Agent model config.
+
+## Catalog maintenance
+
+Edit `data/providers.json` in the tool source (synced on install/update). A later release may swap in an external feed; this phase stays intentionally static.
 
 ## Notes
 
 - Restart the gateway after changing the port.
-- If the process crashes, Deploy will try to restore Agent model slices on the next status check.
-- “Free” depends on your upstreams; this tool itself does not bill you.
+- If the process crashes, Deploy tries to restore Agent slices on the next status check.
+- “Free” depends on provider policy; this tool does not guarantee third-party quota.

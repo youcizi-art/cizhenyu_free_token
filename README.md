@@ -1,6 +1,6 @@
 # CIZHENYU Free Token Gateway
 
-Local OpenAI-compatible LLM gateway for CIZHENYU Deploy (DSH / OpenCode).
+Curated free/trial provider catalog → paste keys → local rotation gateway for DSH / OpenCode.
 
 - Repo: https://github.com/youcizi-art/cizhenyu_free_token
 - Tool id: `free-token`
@@ -19,14 +19,16 @@ node manage.mjs serve   # foreground
 ## Layout
 
 ```text
-server.mjs          HTTP gateway + UI static
-manage.mjs          start/stop/status
-mcp_launcher.mjs    status/models MCP helpers
-public/             gateway UI
-home/               local config (gitignored)
-cizhenyu.tool.json  Deploy tool protocol
+data/providers.json   static curated catalog (path B, phase 1)
+server.mjs            HTTP gateway + UI static
+lib/                  catalog, config v2, router, proxy, agent wire
+manage.mjs            start/stop/status
+public/               Catalog / Connections / Strategy UI
+home/                 local config (gitignored)
+cizhenyu.tool.json    Deploy tool protocol (config.type=page)
 ```
 
 ## Agent wiring
 
-Handled by Deploy: on service start, snapshot and patch Agent model slices to this gateway; on stop, restore. MCP injects are not rolled back.
+On gateway start/save: backup and patch DSH / OpenCode model slices to this gateway.  
+On stop: restore. Upstream API keys never leave `home/config.json`.

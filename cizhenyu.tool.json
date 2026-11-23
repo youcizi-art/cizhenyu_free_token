@@ -4,7 +4,7 @@
   "name": "Free Token Gateway",
   "category": "llm",
   "tier": "recommended",
-  "description": "Local OpenAI-compatible LLM gateway with UI. When running, temporarily routes DSH/OpenCode chat through the gateway; stopping restores original model settings. Upstream keys stay in the gateway home.",
+  "description": "Curated free/trial LLM catalog, key connections, and local rotation gateway for DSH/OpenCode. Upstream keys stay in the gateway home; stopping restores original Agent model settings.",
   "source": {
     "github": "https://github.com/youcizi-art/cizhenyu_free_token",
     "defaultRef": "master"
@@ -45,7 +45,7 @@
   "defaultLocale": "en",
   "i18n": {
     "zh-CN": {
-      "description": "本机 OpenAI 兼容 LLM 网关（含配置 UI）。启用后临时把 DSH/OpenCode 聊天指向本网关；关闭后恢复原模型配置。上游 API Key 只保存在网关 home。"
+      "description": "策展免费/试用商家目录、回填密钥、本机轮换网关，供 DSH/OpenCode 使用。上游 Key 只保存在网关 home；关闭服务后恢复 Agent 原模型配置。"
     }
   }
 }

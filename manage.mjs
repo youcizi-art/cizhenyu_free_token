@@ -165,6 +165,40 @@ async function cmdStart() {
   return 1;
 }
 
+function killPid(pid) {
+  if (!pid || !alive(pid)) return false;
+  try {
+    if (process.platform === "win32") {
+      spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true });
+    } else {
+      process.kill(pid, "SIGTERM");
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Windows：pid 文件丢失时，按监听端口找残留进程 */
+function findPidByPortWin(port) {
+  if (process.platform !== "win32") return null;
+  try {
+    const r = spawnSync(
+      "powershell",
+      [
+        "-NoProfile",
+        "-Command",
+        `(Get-NetTCPConnection -LocalPort ${Number(port)} -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty OwningProcess)`,
+      ],
+      { encoding: "utf8", windowsHide: true },
+    );
+    const n = Number(String(r.stdout || "").trim());
+    return Number.isFinite(n) && n > 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
+
 async function cmdStop() {
   try {
     restoreOnGatewayDown();
@@ -172,17 +206,11 @@ async function cmdStop() {
     console.error(`agent wire restore: ${e?.message || e}`);
   }
   const port = readPort();
-  const pid = readPid();
-  if (pid && alive(pid)) {
-    try {
-      if (process.platform === "win32") {
-        spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true });
-      } else {
-        process.kill(pid, "SIGTERM");
-      }
-    } catch {
-      /* ignore */
-    }
+  let pid = readPid();
+  let killed = killPid(pid);
+  if (!killed && (await portOpen(port))) {
+    pid = findPidByPortWin(port) || pid;
+    killed = killPid(pid);
   }
   for (let i = 0; i < 20; i++) {
     if (!(await portOpen(port))) break;
@@ -193,7 +221,7 @@ async function cmdStop() {
   } catch {
     /* ignore */
   }
-  console.log(pid ? `stopped pid ${pid}` : "not running");
+  console.log(killed || pid ? `stopped pid ${pid || "?"}` : "not running");
   console.log(JSON.stringify({ ok: true, running: false, port }));
   return 0;
 }

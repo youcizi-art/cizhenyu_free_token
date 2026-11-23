@@ -2,14 +2,20 @@
 
 ## Role
 
-Ops protocol tool: local LLM gateway (not a data MCP like World Bank).
+Ops protocol tool: curated catalog + local LLM rotation gateway (not a data MCP).
+
+## Product path
+
+- **Path B**: self-owned catalog + connection rotation (not embedding 9router).
+- **Phase 1**: maintainable static `data/providers.json`.
+- **Later**: optional external feed / API for free-trial discovery.
 
 ## Rules
 
 - Keep secrets in `home/config.json` only.
 - Do not write upstream API keys into DSH/OpenCode configs.
-- Deploy owns Agent model slice backup/restore; this repo owns gateway + UI + manage.
-- Prefer simple OpenAI-compatible proxy + ordered upstream fallback; do not vendor full 9router Dashboard.
+- This repo owns gateway + catalog + UI + manage + agent wire (`CIZHENYU_SYSTEM_ROOT`).
+- Deploy only hosts `config.type=page` WebView + generic `manage.mjs` service shell.
 - No git push from agents unless the user explicitly asks.
 
 ## Ports
