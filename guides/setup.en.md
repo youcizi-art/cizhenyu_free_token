@@ -20,6 +20,9 @@ Upstream secrets stay in `home/config.json` only.
 2. Click **Configure** (top-level WebView, same pattern as CMS/CRM).
 3. In **Catalog**, open signup links, create keys, then **Connect** and paste them.
 4. Under **Strategy**, confirm default model / rotation; rewire if needed.
+5. Restart DSH / OpenCode (running windows do not pick up model changes).
+   - DSH: wire writes `llm-deepseek.models` into `profiles/web/cordis.patch.yml` (custom `DEEPSEEK_BASE_URL` does not use the official listing).
+   - OpenCode: writes provider/models into `opencode.json`.
 5. **Reopen** DSH / OpenCode.
 6. **Stop** the service to restore original Agent model config.
 
