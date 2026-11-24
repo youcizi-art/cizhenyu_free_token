@@ -20,11 +20,12 @@ Upstream secrets stay in `home/config.json` only.
 2. Click **Configure** (top-level WebView, same pattern as CMS/CRM).
 3. In **Catalog**, open signup links, create keys, then **Connect** and paste them.
 4. Under **Strategy**, set default to `cizhenyu/auto-text`, then save & rewire.
-5. Restart DSH / OpenCode (running windows do not pick up model changes).
-   - Prefer **cizhenyu/auto-text**: on 429/quota the gateway retries another connection and remaps the upstream model in-request.
+5. **Reopen** DSH / OpenCode (running windows do not pick up model changes).
+   - Daily: **cizhenyu/auto-text** — on 429/quota the gateway retries another connection and remaps the upstream model in-request.
+   - Vision: **cizhenyu/auto-vision** (injected only when VL upstreams exist). Image parts in an auto-text request promote to the vision pool.
+   - Vision pool is filtered **per model** (not whole connection).
    - A pinned physical model id only fails over across keys that declare the same id.
-   - DSH: `llm-deepseek.models`; OpenCode: `opencode.json` provider.
-5. **Reopen** DSH / OpenCode.
+   - DSH Anthropic `/v1/messages` keeps image blocks when adapting to OpenAI.
 6. **Stop** the service to restore original Agent model config.
 
 ## Catalog maintenance

@@ -65,14 +65,14 @@
           </label>
           <label class="check">
             <input type="checkbox" id="injectPhysicalModels" />
-            接线时同时注入物理模型 id（高级；默认只注入 cizhenyu/auto-text）
+            接线时同时注入物理模型 id（高级；默认只注入 auto-text / auto-vision）
           </label>
           <button type="button" id="btnSaveStrategy" class="btn primary">保存策略并重新接线</button>
         </div>
         <div class="card">
           <h2>路由池</h2>
           <ul id="routeList" class="status-list"></ul>
-          <p class="muted small">Agent 选 auto-text 时，额度用尽会在池内自动换连接并改写上游模型。</p>
+          <p class="muted small">日常选 auto-text；看图选 auto-vision（或 auto-text 带图时自动升视觉池）。额度用尽会在同模态池内换连接并改写上游模型。</p>
         </div>
         <div class="card">
           <h2>Agent 接线</h2>

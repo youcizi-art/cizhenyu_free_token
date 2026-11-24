@@ -58,16 +58,25 @@ function renderRoute(stats) {
     list.innerHTML = "<li>加载中…</li>";
     return;
   }
-  const samples = (stats.sampleText || [])
-    .map((s) => `${s.label}/${s.model}`)
-    .join("；");
+  const fmt = (arr) =>
+    (arr || [])
+      .map((s) => `${s.label}/${s.model}`)
+      .join("；");
+  const samples = fmt(stats.sampleText);
+  const visionSamples = fmt(stats.sampleVision);
   const rows = [
-    `逻辑默认：${stats.autoText || "cizhenyu/auto-text"}`,
+    `逻辑模型：${stats.autoText || "cizhenyu/auto-text"}` +
+      (stats.visionCandidates > 0
+        ? `；${stats.autoVision || "cizhenyu/auto-vision"}`
+        : "（无视觉上游时不注入 auto-vision）"),
     `生效默认：${config?.effectiveDefaultModel || stats.effectiveDefaultModel || "—"}`,
     `文本候选：${stats.textCandidates ?? 0}`,
-    `视觉候选：${stats.visionCandidates ?? 0}`,
+    `视觉候选：${stats.visionCandidates ?? 0}（按单模型能力过滤，非整连接塞入）`,
     `冷却中连接：${stats.coolingConnections ?? 0}；冷却中模型：${stats.coolingModels ?? 0}`,
     samples ? `文本池示例：${samples}` : "文本池为空：请先连接商家",
+    visionSamples
+      ? `视觉池示例：${visionSamples}`
+      : "视觉池为空：连接含 VL/Vision 的模型后会出现 auto-vision",
   ];
   list.innerHTML = rows.map((r) => `<li>${escapeHtml(r)}</li>`).join("");
 }

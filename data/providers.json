@@ -28,7 +28,11 @@
         "mistralai/mistral-small-3.1-24b-instruct:free"
       ],
       "quotaHint": "约 20 RPM / 50 RPD；充值 ≥$10 后免费模型可到 1000 RPD",
-      "notes": "一个 Key 覆盖多家 :free 模型。优先用 openrouter/free 自动路由，或在控制台复制带 :free 的具体 id。"
+      "notes": "一个 Key 覆盖多家 :free 模型。优先用 openrouter/free 自动路由，或在控制台复制带 :free 的具体 id。",
+      "modelCapabilities": {
+        "nvidia/nemotron-3.5-super-vl:free": ["text", "image"],
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": ["text", "image"]
+      }
     },
     {
       "id": "groq",
@@ -48,8 +52,11 @@
         "moonshotai/kimi-k2-instruct",
         "gemma2-9b-it"
       ],
+      "modelCapabilities": {
+        "meta-llama/llama-4-scout-17b-16e-instruct": ["text", "image"]
+      },
       "quotaHint": "免费层约 30 RPM / 1K RPD，TPM 较紧，适合短请求",
-      "notes": "极速推理。模型列表以 console.groq.com/docs/models 为准。"
+      "notes": "极速推理。模型列表以 console.groq.com/docs/models 为准。视觉仅 Scout 等 VL 模型进 auto-vision。"
     },
     {
       "id": "google-ai-studio",
@@ -107,8 +114,11 @@
         "codestral-latest",
         "pixtral-large-latest"
       ],
+      "modelCapabilities": {
+        "pixtral-large-latest": ["text", "image"]
+      },
       "quotaHint": "实验/试用额度以控制台为准",
-      "notes": "注册创建 Key。codestral 适合写代码。"
+      "notes": "注册创建 Key。codestral 适合写代码；看图用 pixtral。"
     },
     {
       "id": "cohere",
@@ -280,6 +290,9 @@
         "Mistral-Small-3.2-24B-Instruct-2506",
         "Qwen3-32B"
       ],
+      "modelCapabilities": {
+        "Qwen2.5-VL-72B-Instruct": ["text", "image"]
+      },
       "quotaHint": "匿名约 2 RPM/模型/IP；更高额度需账号",
       "notes": "EU 托管。匿名可先用占位 Key（如 ovh-anon）试通。"
     },
@@ -381,8 +394,11 @@
         "glm-4v-flash",
         "glm-z1-flash"
       ],
+      "modelCapabilities": {
+        "glm-4v-flash": ["text", "image"]
+      },
       "quotaHint": "Flash 系列常有永久免费额度，并发有限",
-      "notes": "国内用 open.bigmodel.cn；国际站可用 api.z.ai。模型 id 以文档为准。"
+      "notes": "国内用 open.bigmodel.cn；国际站可用 api.z.ai。看图用 glm-4v-flash。"
     },
     {
       "id": "deepseek",
