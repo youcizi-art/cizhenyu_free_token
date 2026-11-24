@@ -69,6 +69,7 @@ function renderWire(wire) {
     kvItem("可用连接", String(upstreamCount)),
     kvItem("注入模型", (wire.models || []).join("、") || "无"),
     kvItem("默认模型", wire.defaultModel || "未设"),
+    kvItem("官方 DeepSeek", wire.officialDeepseek ? "已备份可转发" : "未备份"),
     kvItem("DSH", wire.dshInstalled ? (wire.dshWired ? "已改写" : "未接线") : "未安装"),
     kvItem("OpenCode", wire.opencodeInstalled ? (wire.opencodeWired ? "已改写" : "未安装") : "未安装"),
   ].join("");
@@ -93,21 +94,21 @@ function renderStatStrip(stats) {
     <div class="stat-tile">
       <p class="label">文本候选</p>
       <p class="value">${stats?.textCandidates ?? 0}</p>
-      <p class="hint">${escapeHtml(stats?.autoText || "cizhenyu/auto-text")}</p>
+      <p class="hint">${escapeHtml(stats?.auto || "cizhenyu/auto")} · 自动分流</p>
     </div>
     <div class="stat-tile">
       <p class="label">视觉候选</p>
       <p class="value">${stats?.visionCandidates ?? 0}</p>
       <p class="hint">${
-        (stats?.visionCandidates ?? 0) > 0
+        (stats?.visionCandidates ?? 0) > 0 || stats?.officialDeepseek
           ? escapeHtml(stats?.autoVision || "cizhenyu/auto-vision")
           : "无 VL 时不注入"
       }</p>
     </div>
     <div class="stat-tile">
-      <p class="label">冷却中</p>
-      <p class="value">${(stats?.coolingConnections ?? 0) + (stats?.coolingModels ?? 0)}</p>
-      <p class="hint">连接 ${stats?.coolingConnections ?? 0} · 模型 ${stats?.coolingModels ?? 0}</p>
+      <p class="label">官方 / 冷却</p>
+      <p class="value">${stats?.officialDeepseek ? "可转发" : "—"}</p>
+      <p class="hint">冷却 连接 ${stats?.coolingConnections ?? 0} · 模型 ${stats?.coolingModels ?? 0}</p>
     </div>
   `;
 }
@@ -157,6 +158,11 @@ function renderRoute(stats) {
         <span class="pill ok">${escapeHtml(
           config?.effectiveDefaultModel || stats.effectiveDefaultModel || "—",
         )}</span>
+        ${
+          stats.officialDeepseek
+            ? '<span class="pill ok">官方 DeepSeek 可转发</span>'
+            : '<span class="pill muted">官方 DeepSeek 未备份</span>'
+        }
       </div>
     </div>
     <div class="route-block">
@@ -368,19 +374,24 @@ function fillStrategy() {
       for (const m of c.models || []) if (m && !models.includes(m)) models.push(m);
     }
   }
-  const preferred = config.defaultModel || config.effectiveDefaultModel || "cizhenyu/auto-text";
+  const preferred = config.defaultModel || config.effectiveDefaultModel || "cizhenyu/auto";
   const sel = $("defaultModel");
   sel.innerHTML = "";
   if (!models.length) {
     const o = document.createElement("option");
-    o.value = "cizhenyu/auto-text";
-    o.textContent = "cizhenyu/auto-text（连接商家后生效）";
+    o.value = "cizhenyu/auto";
+    o.textContent = "cizhenyu/auto（连接商家后生效）";
     sel.appendChild(o);
   } else {
     for (const m of models) {
       const o = document.createElement("option");
       o.value = m;
-      o.textContent = m.startsWith("cizhenyu/auto") ? `${m}（自动轮换）` : m;
+      o.textContent =
+        m === "cizhenyu/auto"
+          ? `${m}（自动区分文本/看图）`
+          : m.startsWith("cizhenyu/auto")
+            ? `${m}（自动轮换）`
+            : m;
       if (m === preferred) o.selected = true;
       sel.appendChild(o);
     }
@@ -499,7 +510,7 @@ $("btnSaveStrategy").addEventListener("click", async () => {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      defaultModel: $("defaultModel").value || "cizhenyu/auto-text",
+      defaultModel: $("defaultModel").value || "cizhenyu/auto",
       strategy: {
         modelCooldownSeconds: Number($("modelCooldownSeconds")?.value) || 300,
         injectPhysicalModels: Boolean($("injectPhysicalModels")?.checked),

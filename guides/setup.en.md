@@ -19,14 +19,12 @@ Upstream secrets stay in `home/config.json` only.
 1. Install and **start** Free Token Gateway in Deploy Ops → Tools.
 2. Click **Configure** (top-level WebView, same pattern as CMS/CRM).
 3. In **Catalog**, open signup links, create keys, then **Connect** and paste them.
-4. Under **Strategy**, set default to `cizhenyu/auto-text`, then save & rewire.
+4. Under **Strategy**, set default to `cizhenyu/auto`, then save & rewire.
 5. **Reopen** DSH / OpenCode (running windows do not pick up model changes).
-   - Daily: **cizhenyu/auto-text** — on 429/quota the gateway retries another connection and remaps the upstream model in-request.
-   - Vision: **cizhenyu/auto-vision** (injected only when VL upstreams exist). Image parts in an auto-text request promote to the vision pool.
-   - Vision pool is filtered **per model** (not whole connection).
-   - Strategy page shows **last successful upstream**, per-model cooldowns, and success rates; same-tier routing can prefer historically reliable pairs.
-   - A pinned physical model id only fails over across keys that declare the same id.
-   - DSH Anthropic `/v1/messages` keeps image blocks when adapting to OpenAI.
+   - Daily: **cizhenyu/auto** — text vs vision by request content; on 429/quota remaps within the same modality pool.
+   - Chat attachments: images → vision; text-like files inlined; others → `unsupported_file`.
+   - Image generation without an `image_gen` upstream → `no_image_gen_upstream` (no fake chat-model generation).
+   - **DSH**: official DeepSeek models stay selectable (proxied via gateway); stop restores full cordis + official key. Sign in to official DeepSeek once before first wire so the key can be backed up.
 6. **Stop** the service to restore original Agent model config.
 
 ## Catalog maintenance

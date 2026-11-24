@@ -21,7 +21,11 @@ import {
   genId,
 } from "./lib/config.mjs";
 import { publicCatalog, getProvider } from "./lib/catalog.mjs";
-import { proxyChatCompletions, proxyChatCompletionsStream } from "./lib/proxy.mjs";
+import {
+  proxyChatCompletions,
+  proxyChatCompletionsStream,
+  proxyImageGenerations,
+} from "./lib/proxy.mjs";
 import { proxyAnthropicMessages } from "./lib/anthropic.mjs";
 import { poolStats } from "./lib/route_pool.mjs";
 import {
@@ -358,6 +362,26 @@ async function handle(req, res) {
       return;
     }
     const result = await proxyChatCompletions(live, body);
+    sendJson(res, result.status, result.body, result.headers || {});
+    return;
+  }
+
+  if (
+    (path === "/v1/images/generations" || path === "/images/generations") &&
+    req.method === "POST"
+  ) {
+    if (!checkAnyAuth(req, cfg)) {
+      sendJson(res, 401, { error: { message: "Invalid API key", type: "auth" } });
+      return;
+    }
+    let body;
+    try {
+      body = await readJson(req);
+    } catch {
+      sendJson(res, 400, { error: { message: "invalid json" } });
+      return;
+    }
+    const result = await proxyImageGenerations(loadConfig(), body);
     sendJson(res, result.status, result.body, result.headers || {});
     return;
   }

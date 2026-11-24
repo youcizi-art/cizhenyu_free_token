@@ -19,14 +19,14 @@
 1. 在 Deploy「运营 → 工具箱」安装并**启动** Free Token Gateway。
 2. 点**配置**，打开本机配置页（与 CMS/CRM 同款顶级窗口）。
 3. **商家目录**：点「去注册」到官网拿免费/试用 Key，再「填入密钥」保存连接。
-4. **策略与状态**：默认模型选 `cizhenyu/auto-text`（自动轮换）；确认轮换模式后点「保存策略并重新接线」。
+4. **策略与状态**：默认模型选 `cizhenyu/auto`（按请求自动分流文本/看图）；确认后点「保存策略并重新接线」。
 5. **重新打开** DSH / OpenCode（已开的窗口不会自动切换）。
-   - 日常选 **cizhenyu/auto-text**：一家额度/429 时网关在同请求内换连接并改写上游模型。
-   - 看图选 **cizhenyu/auto-vision**（有 VL 上游时才注入）；若 auto-text 请求里带图，会升到视觉池。
-   - 视觉池按**单模型**能力过滤（例如 Groq 只有 Scout 进视觉池，不会把整家文本模型塞进去）。
-   - 「策略与状态」可看**最近成功走了哪家**、模型级冷却、成功率；同档可略偏好更稳的上游。
-   - 钉死物理模型 id：只换同名模型的 Key，不跨模型改写。
-   - DSH：接线写入 `llm-deepseek.models`；OpenCode：写入 `opencode.json` provider。Anthropic `/v1/messages` 路径会保留 image 块。
+   - 日常选 **cizhenyu/auto**：纯文本走文本池，带图走视觉池；额度/429 时同池内换家并改写上游模型。
+   - 也可钉死 **auto-text** / **auto-vision**；视觉池按**单模型**能力过滤。
+   - 聊天附件：图片 → 视觉；txt/md/csv/json/代码等 → 抽文本；其它类型返回 `unsupported_file`。
+   - 生图 API 无上游时返回 `no_image_gen_upstream`（不会用聊天模型假装生图）。
+   - **DSH**：接线后仍保留官方 DeepSeek 模型（经网关转发）；停服务后完整恢复 cordis 与官方 Key。首次接线前请先登录过官方 DeepSeek，以便备份 Key。
+   - OpenCode：写入 `opencode.json` provider。
 6. 用完后在工具箱**停止服务**，Agent 模型配置回退。
 
 ## 维护策展目录
