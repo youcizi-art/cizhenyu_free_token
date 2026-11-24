@@ -15,6 +15,7 @@ import {
   saveConfig,
   publicConfigView,
   listModelIds,
+  effectiveDefaultModel,
   upsertConnection,
   removeConnection,
   genId,
@@ -22,6 +23,7 @@ import {
 import { publicCatalog, getProvider } from "./lib/catalog.mjs";
 import { proxyChatCompletions, proxyChatCompletionsStream } from "./lib/proxy.mjs";
 import { proxyAnthropicMessages } from "./lib/anthropic.mjs";
+import { poolStats } from "./lib/route_pool.mjs";
 import {
   applyOnGatewayUp,
   restoreOnGatewayDown,
@@ -49,11 +51,12 @@ function readJson(req) {
   });
 }
 
-function sendJson(res, status, body) {
+function sendJson(res, status, body, extraHeaders = {}) {
   const data = JSON.stringify(body);
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
     "Access-Control-Allow-Origin": "*",
+    ...extraHeaders,
   });
   res.end(data);
 }
@@ -190,6 +193,17 @@ async function handle(req, res) {
     return;
   }
 
+  if (path === "/api/route-status" && req.method === "GET") {
+    sendJson(res, 200, {
+      ...poolStats(cfg),
+      defaultModel: cfg.defaultModel || "",
+      effectiveDefaultModel: effectiveDefaultModel(cfg),
+      injectedModels: listModelIds(cfg),
+      strategy: cfg.strategy,
+    });
+    return;
+  }
+
   if (path === "/api/wire/apply" && req.method === "POST") {
     sendJson(res, 200, tryApplyWire());
     return;
@@ -310,7 +324,7 @@ async function handle(req, res) {
       return;
     }
     const result = await proxyAnthropicMessages(loadConfig(), body);
-    sendJson(res, result.status, result.body);
+    sendJson(res, result.status, result.body, result.headers || {});
     return;
   }
 
@@ -332,7 +346,7 @@ async function handle(req, res) {
       return;
     }
     const result = await proxyChatCompletions(live, body);
-    sendJson(res, result.status, result.body);
+    sendJson(res, result.status, result.body, result.headers || {});
     return;
   }
 

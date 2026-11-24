@@ -19,10 +19,11 @@ Upstream secrets stay in `home/config.json` only.
 1. Install and **start** Free Token Gateway in Deploy Ops → Tools.
 2. Click **Configure** (top-level WebView, same pattern as CMS/CRM).
 3. In **Catalog**, open signup links, create keys, then **Connect** and paste them.
-4. Under **Strategy**, confirm default model / rotation; rewire if needed.
+4. Under **Strategy**, set default to `cizhenyu/auto-text`, then save & rewire.
 5. Restart DSH / OpenCode (running windows do not pick up model changes).
-   - DSH: wire writes `llm-deepseek.models` into `profiles/web/cordis.patch.yml` (custom `DEEPSEEK_BASE_URL` does not use the official listing).
-   - OpenCode: writes provider/models into `opencode.json`.
+   - Prefer **cizhenyu/auto-text**: on 429/quota the gateway retries another connection and remaps the upstream model in-request.
+   - A pinned physical model id only fails over across keys that declare the same id.
+   - DSH: `llm-deepseek.models`; OpenCode: `opencode.json` provider.
 5. **Reopen** DSH / OpenCode.
 6. **Stop** the service to restore original Agent model config.
 

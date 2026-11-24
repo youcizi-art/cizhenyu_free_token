@@ -19,10 +19,11 @@
 1. 在 Deploy「运营 → 工具箱」安装并**启动** Free Token Gateway。
 2. 点**配置**，打开本机配置页（与 CMS/CRM 同款顶级窗口）。
 3. **商家目录**：点「去注册」到官网拿免费/试用 Key，再「填入密钥」保存连接。
-4. **策略与状态**：确认默认模型与轮换模式，必要时点「重新接线」。
+4. **策略与状态**：默认模型选 `cizhenyu/auto-text`（自动轮换）；确认轮换模式后点「保存策略并重新接线」。
 5. **重新打开** DSH / OpenCode（已开的窗口不会自动切换）。
-   - DSH：接线会改写 `profiles/web/cordis.patch.yml` 中的 `llm-deepseek.models`（自定义网关不会拉官方模型列表，必须注入）。
-   - OpenCode：写入 `opencode.json` 的 provider / models。
+   - Agent 日常选 **cizhenyu/auto-text**：一家额度/429 时网关在同请求内换连接并改写上游模型。
+   - 钉死物理模型 id：只换同名模型的 Key，不跨模型改写。
+   - DSH：接线写入 `llm-deepseek.models`；OpenCode：写入 `opencode.json` provider。
 6. 用完后在工具箱**停止服务**，Agent 模型配置回退。
 
 ## 维护策展目录

@@ -43,10 +43,31 @@ function renderWire(wire) {
   badge.className = ok ? "badge ok" : "badge";
   const rows = [
     `可用连接：${wire.upstreamCount ?? (config?.connections || []).filter((c) => c.enabled && c.hasApiKey).length}`,
-    `模型：${(wire.models || []).join("、") || "无"}`,
+    `注入模型：${(wire.models || []).join("、") || "无"}`,
     `默认模型：${wire.defaultModel || "未设"}`,
     `DSH：${wire.dshInstalled ? (wire.dshWired ? "已改写" : "未接线") : "未安装"}`,
     `OpenCode：${wire.opencodeInstalled ? (wire.opencodeWired ? "已改写" : "未接线") : "未安装"}`,
+  ];
+  list.innerHTML = rows.map((r) => `<li>${escapeHtml(r)}</li>`).join("");
+}
+
+function renderRoute(stats) {
+  const list = $("routeList");
+  if (!list) return;
+  if (!stats) {
+    list.innerHTML = "<li>加载中…</li>";
+    return;
+  }
+  const samples = (stats.sampleText || [])
+    .map((s) => `${s.label}/${s.model}`)
+    .join("；");
+  const rows = [
+    `逻辑默认：${stats.autoText || "cizhenyu/auto-text"}`,
+    `生效默认：${config?.effectiveDefaultModel || stats.effectiveDefaultModel || "—"}`,
+    `文本候选：${stats.textCandidates ?? 0}`,
+    `视觉候选：${stats.visionCandidates ?? 0}`,
+    `冷却中连接：${stats.coolingConnections ?? 0}；冷却中模型：${stats.coolingModels ?? 0}`,
+    samples ? `文本池示例：${samples}` : "文本池为空：请先连接商家",
   ];
   list.innerHTML = rows.map((r) => `<li>${escapeHtml(r)}</li>`).join("");
 }
@@ -203,26 +224,35 @@ function fillStrategy() {
   $("strategyMode").value = config.strategy?.mode || "priority";
   $("preferFree").checked = config.strategy?.preferFree !== false;
   $("cooldownSeconds").value = config.strategy?.cooldownSeconds || 120;
+  if ($("modelCooldownSeconds")) {
+    $("modelCooldownSeconds").value = config.strategy?.modelCooldownSeconds || 300;
+  }
+  if ($("injectPhysicalModels")) {
+    $("injectPhysicalModels").checked = Boolean(config.strategy?.injectPhysicalModels);
+  }
   $("port").value = config.port;
   $("localApiKey").value = config.localApiKey || "";
-  const models = [];
-  for (const c of config.connections || []) {
-    if (!c.enabled || !c.hasApiKey) continue;
-    for (const m of c.models || []) if (m && !models.includes(m)) models.push(m);
+  const models = [...(config.injectedModels || [])];
+  if (!models.length) {
+    for (const c of config.connections || []) {
+      if (!c.enabled || !c.hasApiKey) continue;
+      for (const m of c.models || []) if (m && !models.includes(m)) models.push(m);
+    }
   }
+  const preferred = config.defaultModel || config.effectiveDefaultModel || "cizhenyu/auto-text";
   const sel = $("defaultModel");
   sel.innerHTML = "";
   if (!models.length) {
     const o = document.createElement("option");
-    o.value = "";
-    o.textContent = "请先连接商家";
+    o.value = "cizhenyu/auto-text";
+    o.textContent = "cizhenyu/auto-text（连接商家后生效）";
     sel.appendChild(o);
   } else {
     for (const m of models) {
       const o = document.createElement("option");
       o.value = m;
-      o.textContent = m;
-      if (m === config.defaultModel) o.selected = true;
+      o.textContent = m.startsWith("cizhenyu/auto") ? `${m}（自动轮换）` : m;
+      if (m === preferred) o.selected = true;
       sel.appendChild(o);
     }
   }
@@ -241,6 +271,16 @@ function applyConfigPayload(data) {
   renderCatalog();
   renderConnections();
   fillStrategy();
+  void refreshRoute();
+}
+
+async function refreshRoute() {
+  try {
+    const stats = await fetch("/api/route-status").then((r) => r.json());
+    renderRoute(stats);
+  } catch {
+    renderRoute(null);
+  }
 }
 
 function openConnect(providerId) {
@@ -325,8 +365,12 @@ $("btnSaveStrategy").addEventListener("click", async () => {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      defaultModel: $("defaultModel").value,
+      defaultModel: $("defaultModel").value || "cizhenyu/auto-text",
       strategy: {
+        modelCooldownSeconds: Number($("modelCooldownSeconds")?.value) || 300,
+        injectPhysicalModels: Boolean($("injectPhysicalModels")?.checked),
+        maxAttemptsPerRequest: 5,
+        remapOnModelError: true,
         mode: $("strategyMode").value,
         preferFree: $("preferFree").checked,
         cooldownSeconds: Number($("cooldownSeconds").value) || 120,
