@@ -24,6 +24,7 @@ Upstream secrets stay in `home/config.json` only.
    - Daily: **cizhenyu/auto-text** — on 429/quota the gateway retries another connection and remaps the upstream model in-request.
    - Vision: **cizhenyu/auto-vision** (injected only when VL upstreams exist). Image parts in an auto-text request promote to the vision pool.
    - Vision pool is filtered **per model** (not whole connection).
+   - Strategy page shows **last successful upstream**, per-model cooldowns, and success rates; same-tier routing can prefer historically reliable pairs.
    - A pinned physical model id only fails over across keys that declare the same id.
    - DSH Anthropic `/v1/messages` keeps image blocks when adapting to OpenAI.
 6. **Stop** the service to restore original Agent model config.

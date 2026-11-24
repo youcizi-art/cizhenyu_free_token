@@ -25,6 +25,11 @@ import { proxyChatCompletions, proxyChatCompletionsStream } from "./lib/proxy.mj
 import { proxyAnthropicMessages } from "./lib/anthropic.mjs";
 import { poolStats } from "./lib/route_pool.mjs";
 import {
+  publicRouteStats,
+  resetRouteStats,
+  flushRouteStats,
+} from "./lib/route_stats.mjs";
+import {
   applyOnGatewayUp,
   restoreOnGatewayDown,
   wireStatus,
@@ -196,11 +201,18 @@ async function handle(req, res) {
   if (path === "/api/route-status" && req.method === "GET") {
     sendJson(res, 200, {
       ...poolStats(cfg),
+      ...publicRouteStats(cfg),
       defaultModel: cfg.defaultModel || "",
       effectiveDefaultModel: effectiveDefaultModel(cfg),
       injectedModels: listModelIds(cfg),
       strategy: cfg.strategy,
     });
+    return;
+  }
+
+  if (path === "/api/route-stats/reset" && req.method === "POST") {
+    resetRouteStats();
+    sendJson(res, 200, { ok: true, ...publicRouteStats(cfg) });
     return;
   }
 
@@ -386,5 +398,13 @@ createServer((req, res) => {
   }
 });
 
-process.on("SIGINT", () => process.exit(0));
-process.on("SIGTERM", () => process.exit(0));
+function shutdown() {
+  try {
+    flushRouteStats();
+  } catch {
+    /* ignore */
+  }
+  process.exit(0);
+}
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);

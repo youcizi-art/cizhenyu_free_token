@@ -3,6 +3,7 @@ const $ = (id) => document.getElementById(id);
 let catalog = { providers: [] };
 let config = null;
 let tierFilter = "all";
+let lastRouteStats = null;
 
 function toast(msg) {
   const el = $("toast");
@@ -30,55 +31,154 @@ function connectedCount(providerId) {
   return (config?.connections || []).filter((c) => c.providerId === providerId && c.hasApiKey).length;
 }
 
+function fmtAgo(ts) {
+  const n = Number(ts);
+  if (!n) return "";
+  const sec = Math.max(0, Math.round((Date.now() - n) / 1000));
+  if (sec < 60) return `${sec}s 前`;
+  if (sec < 3600) return `${Math.floor(sec / 60)}m 前`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)}h 前`;
+  return new Date(n).toLocaleString();
+}
+
+function kvItem(k, v) {
+  return `<li><span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(v)}</span></li>`;
+}
+
 function renderWire(wire) {
   const badge = $("wireBadge");
   const list = $("statusList");
   if (!wire) {
     badge.textContent = "未知";
     badge.className = "badge";
+    if (list) list.innerHTML = kvItem("状态", "无法读取接线信息");
     return;
   }
   const ok = wire.active && (wire.models || []).length > 0;
-  badge.textContent = ok ? `已接线 · ${(wire.models || []).length} 模型` : wire.active ? "已启动，待连接商家" : "未接线";
+  badge.textContent = ok
+    ? `已接线 · ${(wire.models || []).length} 模型`
+    : wire.active
+      ? "已启动，待连接商家"
+      : "未接线";
   badge.className = ok ? "badge ok" : "badge";
-  const rows = [
-    `可用连接：${wire.upstreamCount ?? (config?.connections || []).filter((c) => c.enabled && c.hasApiKey).length}`,
-    `注入模型：${(wire.models || []).join("、") || "无"}`,
-    `默认模型：${wire.defaultModel || "未设"}`,
-    `DSH：${wire.dshInstalled ? (wire.dshWired ? "已改写" : "未接线") : "未安装"}`,
-    `OpenCode：${wire.opencodeInstalled ? (wire.opencodeWired ? "已改写" : "未接线") : "未安装"}`,
-  ];
-  list.innerHTML = rows.map((r) => `<li>${escapeHtml(r)}</li>`).join("");
+
+  const upstreamCount =
+    wire.upstreamCount ?? (config?.connections || []).filter((c) => c.enabled && c.hasApiKey).length;
+  if (!list) return;
+  list.innerHTML = [
+    kvItem("可用连接", String(upstreamCount)),
+    kvItem("注入模型", (wire.models || []).join("、") || "无"),
+    kvItem("默认模型", wire.defaultModel || "未设"),
+    kvItem("DSH", wire.dshInstalled ? (wire.dshWired ? "已改写" : "未接线") : "未安装"),
+    kvItem("OpenCode", wire.opencodeInstalled ? (wire.opencodeWired ? "已改写" : "未安装") : "未安装"),
+  ].join("");
+}
+
+function renderStatStrip(stats) {
+  const root = $("statStrip");
+  if (!root) return;
+  const last = stats?.lastSuccess;
+  const lastValue = last
+    ? `${last.label || last.providerId || "上游"}`
+    : "—";
+  const lastHint = last
+    ? `${last.model || ""}${last.at ? ` · ${fmtAgo(last.at)}` : ""}`
+    : "发一次聊天后出现";
+  root.innerHTML = `
+    <div class="stat-tile accent">
+      <p class="label">最近成功</p>
+      <p class="value">${escapeHtml(lastValue)}</p>
+      <p class="hint">${escapeHtml(lastHint)}</p>
+    </div>
+    <div class="stat-tile">
+      <p class="label">文本候选</p>
+      <p class="value">${stats?.textCandidates ?? 0}</p>
+      <p class="hint">${escapeHtml(stats?.autoText || "cizhenyu/auto-text")}</p>
+    </div>
+    <div class="stat-tile">
+      <p class="label">视觉候选</p>
+      <p class="value">${stats?.visionCandidates ?? 0}</p>
+      <p class="hint">${
+        (stats?.visionCandidates ?? 0) > 0
+          ? escapeHtml(stats?.autoVision || "cizhenyu/auto-vision")
+          : "无 VL 时不注入"
+      }</p>
+    </div>
+    <div class="stat-tile">
+      <p class="label">冷却中</p>
+      <p class="value">${(stats?.coolingConnections ?? 0) + (stats?.coolingModels ?? 0)}</p>
+      <p class="hint">连接 ${stats?.coolingConnections ?? 0} · 模型 ${stats?.coolingModels ?? 0}</p>
+    </div>
+  `;
 }
 
 function renderRoute(stats) {
-  const list = $("routeList");
-  if (!list) return;
+  lastRouteStats = stats;
+  renderStatStrip(stats);
+  const panel = $("routePanel");
+  if (!panel) return;
   if (!stats) {
-    list.innerHTML = "<li>加载中…</li>";
+    panel.innerHTML = '<p class="muted small">路由状态加载中…</p>';
     return;
   }
-  const fmt = (arr) =>
-    (arr || [])
-      .map((s) => `${s.label}/${s.model}`)
-      .join("；");
-  const samples = fmt(stats.sampleText);
-  const visionSamples = fmt(stats.sampleVision);
-  const rows = [
-    `逻辑模型：${stats.autoText || "cizhenyu/auto-text"}` +
-      (stats.visionCandidates > 0
-        ? `；${stats.autoVision || "cizhenyu/auto-vision"}`
-        : "（无视觉上游时不注入 auto-vision）"),
-    `生效默认：${config?.effectiveDefaultModel || stats.effectiveDefaultModel || "—"}`,
-    `文本候选：${stats.textCandidates ?? 0}`,
-    `视觉候选：${stats.visionCandidates ?? 0}（按单模型能力过滤，非整连接塞入）`,
-    `冷却中连接：${stats.coolingConnections ?? 0}；冷却中模型：${stats.coolingModels ?? 0}`,
-    samples ? `文本池示例：${samples}` : "文本池为空：请先连接商家",
-    visionSamples
-      ? `视觉池示例：${visionSamples}`
-      : "视觉池为空：连接含 VL/Vision 的模型后会出现 auto-vision",
-  ];
-  list.innerHTML = rows.map((r) => `<li>${escapeHtml(r)}</li>`).join("");
+
+  const samples = (stats.sampleText || [])
+    .map((s) => `<span class="pill muted">${escapeHtml(`${s.label}/${s.model}`)}</span>`)
+    .join("");
+  const visionSamples = (stats.sampleVision || [])
+    .map((s) => `<span class="pill muted">${escapeHtml(`${s.label}/${s.model}`)}</span>`)
+    .join("");
+  const coolChips = (stats.coolingModels || [])
+    .slice(0, 8)
+    .map(
+      (c) =>
+        `<span class="pill warn">${escapeHtml(`${c.label}/${c.model}`)} · ${c.remainSec}s</span>`,
+    )
+    .join("");
+
+  const rates = (stats.byKey || []).slice(0, 6);
+  const rateHtml = rates.length
+    ? `<div class="rate-bars">${rates
+        .map((r) => {
+          const pct = Math.max(0, Math.min(100, Number(r.rate) || 0));
+          return `<div class="rate-row">
+            <span class="name">${escapeHtml(`${r.label}/${r.model}`)}</span>
+            <span class="pct">${pct}%</span>
+            <div class="rate-bar" aria-hidden="true"><span style="width:${pct}%"></span></div>
+          </div>`;
+        })
+        .join("")}</div>`
+    : '<p class="muted small">暂无成功率样本</p>';
+
+  panel.innerHTML = `
+    <div class="route-block">
+      <h3>生效默认</h3>
+      <div class="chip-row">
+        <span class="pill ok">${escapeHtml(
+          config?.effectiveDefaultModel || stats.effectiveDefaultModel || "—",
+        )}</span>
+      </div>
+    </div>
+    <div class="route-block">
+      <h3>文本池示例</h3>
+      <div class="chip-row">${samples || '<span class="pill muted">空：请先连接商家</span>'}</div>
+    </div>
+    <div class="route-block">
+      <h3>视觉池示例</h3>
+      <div class="chip-row">${
+        visionSamples || '<span class="pill muted">空：连接 VL / Vision 模型后出现</span>'
+      }</div>
+    </div>
+    ${
+      coolChips
+        ? `<div class="route-block"><h3>模型冷却</h3><div class="chip-row">${coolChips}</div></div>`
+        : ""
+    }
+    <div class="route-block">
+      <h3>成功率</h3>
+      ${rateHtml}
+    </div>
+  `;
 }
 
 async function openExternal(url) {
@@ -93,7 +193,7 @@ async function openExternal(url) {
     const data = await res.json().catch(() => ({}));
     if (!res.ok || data.ok === false) throw new Error(data.error || "open failed");
     toast("已在系统浏览器打开");
-  } catch (e) {
+  } catch {
     try {
       await navigator.clipboard.writeText(u);
       toast("无法自动打开，链接已复制到剪贴板");
@@ -107,30 +207,30 @@ function renderCatalog() {
   const root = $("catalogList");
   const list = (catalog.providers || []).filter((p) => tierFilter === "all" || p.tier === tierFilter);
   if (!list.length) {
-    root.innerHTML = '<div class="empty">该分类下暂无商家</div>';
+    root.innerHTML = '<div class="empty"><strong>暂无商家</strong>换一个档位再看看</div>';
     return;
   }
   root.innerHTML = list
     .map((p) => {
       const n = connectedCount(p.id);
       const models = p.models || [];
-      const preview = models.slice(0, 4).map(escapeHtml).join(", ") || "连接时自行填写模型";
+      const preview = models.slice(0, 3).map(escapeHtml).join(", ") || "连接时自行填写";
       const more =
-        models.length > 4
+        models.length > 3
           ? `<details class="model-more"><summary>全部 ${models.length} 个模型</summary><ul>${models
               .map((m) => `<li><code>${escapeHtml(m)}</code></li>`)
               .join("")}</ul></details>`
-          : models.length
-            ? `<p class="models"><strong>模型：</strong>${preview}</p>`
-            : `<p class="models"><strong>模型：</strong>连接时自行填写</p>`;
+          : "";
       return `
       <article class="provider-card" data-id="${escapeHtml(p.id)}">
         <span class="tier ${escapeHtml(p.tier)}">${tierLabel(p.tier)}</span>
         <h3>${escapeHtml(p.name)}</h3>
         <p>${escapeHtml(p.notes || "")}</p>
-        ${models.length > 4 ? `<p class="models"><strong>模型：</strong>${preview} …</p>${more}` : more}
-        <p class="muted small">${escapeHtml(p.quotaHint || "")}${n ? ` · 已连接 ${n}` : ""}</p>
-        <div class="row">
+        <p class="models"><strong>模型</strong> · ${preview}${models.length > 3 ? " …" : ""}</p>
+        ${more}
+        <p class="muted small">${escapeHtml(p.quotaHint || "")}</p>
+        ${n ? `<p class="conn-count">已连接 ${n}</p>` : ""}
+        <div class="row card-actions">
           ${
             p.signupUrl
               ? `<button type="button" class="btn" data-open="${escapeHtml(p.signupUrl)}">去注册</button>`
@@ -160,31 +260,53 @@ function renderConnections() {
   const list = config?.connections || [];
   if (!list.length) {
     root.innerHTML =
-      '<div class="empty">还没有连接。请到「商家目录」注册并填入密钥。</div>';
+      '<div class="empty"><strong>还没有连接</strong>到「商家目录」注册并填入密钥</div>';
     return;
   }
   root.innerHTML = list
     .map((c) => {
-      const cooling = c.cooling ? " · 冷却中" : "";
+      const on = c.enabled !== false;
+      const cooling = Boolean(c.cooling);
+      const caps = (c.capabilities || []).join(" · ") || "text";
+      const modelsPreview = (c.models || []).slice(0, 4).join(", ") || "未设";
+      const moreModels = (c.models || []).length > 4 ? ` 等 ${(c.models || []).length} 个` : "";
+      const coolModels = (c.coolingModels || [])
+        .map((m) => {
+          const sec = Math.max(0, Math.ceil((Number(m.until) - Date.now()) / 1000));
+          return `${m.id} ${sec}s`;
+        })
+        .join(" · ");
       return `
-      <article class="conn-card">
-        <div class="top">
-          <div>
-            <strong>${escapeHtml(c.label)}</strong>
+      <article class="conn-card ${on ? "" : "is-off"} ${cooling ? "is-cooling" : ""}">
+        <div class="conn-card-head">
+          <h3 class="conn-title">
+            ${escapeHtml(c.label)}
             <span class="tier ${escapeHtml(c.tier)}">${tierLabel(c.tier)}</span>
+          </h3>
+        </div>
+        <div class="conn-body">
+          <dl class="conn-meta-grid">
+            <div class="meta-row"><dt>商家</dt><dd>${escapeHtml(c.providerId)}</dd></div>
+            <div class="meta-row"><dt>优先级</dt><dd>${escapeHtml(String(c.priority))}</dd></div>
+            <div class="meta-row"><dt>能力</dt><dd>${escapeHtml(caps)}</dd></div>
+            <div class="meta-row"><dt>地址</dt><dd>${escapeHtml(c.baseUrl || "—")}</dd></div>
+            <div class="meta-row"><dt>模型</dt><dd>${escapeHtml(modelsPreview + moreModels)}</dd></div>
+            <div class="meta-row"><dt>密钥</dt><dd>${c.hasApiKey ? "已保存" : "缺失"}</dd></div>
+          </dl>
+          <div class="conn-tags">
+            <span class="pill ${on ? "ok" : "muted"}">${on ? "轮换中" : "已停用"}</span>
+            ${cooling ? '<span class="pill warn">连接冷却中</span>' : ""}
+            ${coolModels ? `<span class="pill warn">${escapeHtml(coolModels)}</span>` : ""}
           </div>
-          <button type="button" class="btn danger" data-del="${escapeHtml(c.id)}">删除</button>
         </div>
-        <div class="conn-meta">
-          商家：${escapeHtml(c.providerId)} · 优先级 ${c.priority}
-          ${c.enabled === false ? " · 已停用" : " · 启用"}${cooling}<br/>
-          ${escapeHtml(c.baseUrl)}<br/>
-          模型：${escapeHtml((c.models || []).join(", ") || "未设")} · Key：${c.hasApiKey ? "已保存" : "缺失"}
+        <div class="conn-foot">
+          <label class="toggle" title="是否参与自动轮换">
+            <input type="checkbox" data-en="${escapeHtml(c.id)}" ${on ? "checked" : ""} />
+            <span class="toggle-track" aria-hidden="true"></span>
+            <span class="toggle-label">${on ? "参与轮换" : "不参与"}</span>
+          </label>
+          <button type="button" class="btn danger sm" data-del="${escapeHtml(c.id)}">删除</button>
         </div>
-        <label class="check">
-          <input type="checkbox" data-en="${escapeHtml(c.id)}" ${c.enabled !== false ? "checked" : ""} />
-          参与轮换
-        </label>
       </article>`;
     })
     .join("");
@@ -201,15 +323,10 @@ function renderConnections() {
   root.querySelectorAll("[data-en]").forEach((input) => {
     input.addEventListener("change", async () => {
       const id = input.getAttribute("data-en");
-      const conn = (config.connections || []).find((c) => c.id === id);
-      if (!conn) return;
-      const body = {
-        ...config,
-        connections: config.connections.map((c) =>
-          c.id === id ? { ...c, enabled: input.checked, apiKey: "" } : { ...c, apiKey: "" },
-        ),
-      };
-      // 保留密钥：服务端用空 apiKey 表示不改；但我们需要带 enabled
+      const label = input.closest(".toggle")?.querySelector(".toggle-label");
+      if (label) label.textContent = input.checked ? "参与轮换" : "不参与";
+      const card = input.closest(".conn-card");
+      if (card) card.classList.toggle("is-off", !input.checked);
       const res = await fetch("/api/config", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -224,7 +341,7 @@ function renderConnections() {
         }),
       });
       applyConfigPayload(await res.json());
-      toast("已更新");
+      toast(input.checked ? "已加入轮换" : "已退出轮换");
     });
   });
 }
@@ -232,6 +349,9 @@ function renderConnections() {
 function fillStrategy() {
   $("strategyMode").value = config.strategy?.mode || "priority";
   $("preferFree").checked = config.strategy?.preferFree !== false;
+  if ($("preferReliable")) {
+    $("preferReliable").checked = config.strategy?.preferReliable !== false;
+  }
   $("cooldownSeconds").value = config.strategy?.cooldownSeconds || 120;
   if ($("modelCooldownSeconds")) {
     $("modelCooldownSeconds").value = config.strategy?.modelCooldownSeconds || 300;
@@ -302,7 +422,7 @@ function openConnect(providerId) {
     : "填写自定义 OpenAI 兼容地址与密钥。";
   $("connLabel").value = p.name;
   $("connBaseUrl").value = p.baseUrl || "";
-  $("baseUrlField").style.display = p.id === "custom" || !p.baseUrl ? "block" : "block";
+  $("baseUrlField").style.display = "block";
   $("connApiKey").value = "";
   $("connModels").value = (p.models || []).join(", ");
   $("connPriority").value = p.tier === "free" ? 10 : p.tier === "trial" ? 20 : 30;
@@ -320,10 +440,15 @@ async function load() {
 
 document.querySelectorAll(".tab").forEach((tab) => {
   tab.addEventListener("click", () => {
-    document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+    document.querySelectorAll(".tab").forEach((t) => {
+      t.classList.remove("active");
+      t.setAttribute("aria-selected", "false");
+    });
     document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
     tab.classList.add("active");
+    tab.setAttribute("aria-selected", "true");
     $(`panel-${tab.dataset.tab}`).classList.add("active");
+    if (tab.dataset.tab === "strategy") void refreshRoute();
   });
 });
 
@@ -382,6 +507,7 @@ $("btnSaveStrategy").addEventListener("click", async () => {
         remapOnModelError: true,
         mode: $("strategyMode").value,
         preferFree: $("preferFree").checked,
+        preferReliable: Boolean($("preferReliable")?.checked),
         cooldownSeconds: Number($("cooldownSeconds").value) || 120,
       },
       connections: (config.connections || []).map((c) => ({ ...c, apiKey: "" })),
@@ -389,6 +515,12 @@ $("btnSaveStrategy").addEventListener("click", async () => {
   });
   applyConfigPayload(await res.json());
   toast("策略已保存并尝试重新接线");
+});
+
+$("btnResetRouteStats")?.addEventListener("click", async () => {
+  await fetch("/api/route-stats/reset", { method: "POST" });
+  await refreshRoute();
+  toast("已清空成功率统计");
 });
 
 $("btnSaveAdvanced").addEventListener("click", async () => {

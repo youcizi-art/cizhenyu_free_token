@@ -10,19 +10,28 @@
     <main class="page">
       <header class="header">
         <div>
+          <p class="brand-kicker">Cizhenyu</p>
           <h1>Free Token Gateway</h1>
+          <p class="header-sub">策展免费 / 试用上游，额度耗尽时在同能力池内自动换家并改写模型。</p>
         </div>
-        <div id="wireBadge" class="badge">…</div>
+        <div id="wireBadge" class="badge" aria-live="polite">…</div>
       </header>
 
-      <nav class="tabs" role="tablist">
-        <button type="button" class="tab active" data-tab="catalog">商家目录</button>
-        <button type="button" class="tab" data-tab="connections">我的连接</button>
-        <button type="button" class="tab" data-tab="strategy">策略与状态</button>
+      <nav class="tabs" role="tablist" aria-label="配置分区">
+        <button type="button" class="tab active" data-tab="catalog" role="tab" aria-selected="true">
+          商家目录
+        </button>
+        <button type="button" class="tab" data-tab="connections" role="tab" aria-selected="false">
+          我的连接
+        </button>
+        <button type="button" class="tab" data-tab="strategy" role="tab" aria-selected="false">
+          策略与状态
+        </button>
       </nav>
 
-      <section id="panel-catalog" class="panel active">
-        <div class="filters">
+      <section id="panel-catalog" class="panel active" role="tabpanel">
+        <p class="panel-intro">从目录注册拿 Key，再填入本机。密钥只保存在网关 home，不会写入 Agent 配置。</p>
+        <div class="filters" role="group" aria-label="按档位筛选">
           <button type="button" class="chip active" data-tier="all">全部</button>
           <button type="button" class="chip" data-tier="free">免费</button>
           <button type="button" class="chip" data-tier="trial">试用</button>
@@ -32,71 +41,126 @@
         <div id="catalogList" class="cards"></div>
       </section>
 
-      <section id="panel-connections" class="panel">
-        <p class="lead">已连接的账户会参与轮换。额度触发限流时自动冷却并切换下一家。</p>
-        <div id="connList" class="stack"></div>
+      <section id="panel-connections" class="panel" role="tabpanel">
+        <p class="panel-intro">
+          已连接账户会参与轮换。用卡片右下角开关控制是否参与；触发限流时自动冷却并切下一家。
+        </p>
+        <div id="connList" class="conn-grid"></div>
       </section>
 
-      <section id="panel-strategy" class="panel">
-        <div class="card">
-          <h2>轮换策略</h2>
-          <label class="field">
-            <span>模式</span>
-            <select id="strategyMode">
-              <option value="priority">按优先级（数字越小越先）</option>
-              <option value="round_robin">轮询可用连接</option>
-            </select>
-          </label>
-          <label class="check">
-            <input type="checkbox" id="preferFree" />
-            优先使用 free / trial 层
-          </label>
-          <label class="field">
-            <span>限流冷却（秒）</span>
-            <input id="cooldownSeconds" type="number" min="30" max="3600" />
-          </label>
-          <label class="field">
-            <span>模型级冷却（秒）</span>
-            <input id="modelCooldownSeconds" type="number" min="30" max="3600" />
-          </label>
-          <label class="field">
-            <span>默认模型</span>
-            <select id="defaultModel"></select>
-          </label>
-          <label class="check">
-            <input type="checkbox" id="injectPhysicalModels" />
-            接线时同时注入物理模型 id（高级；默认只注入 auto-text / auto-vision）
-          </label>
-          <button type="button" id="btnSaveStrategy" class="btn primary">保存策略并重新接线</button>
-        </div>
-        <div class="card">
-          <h2>路由池</h2>
-          <ul id="routeList" class="status-list"></ul>
-          <p class="muted small">日常选 auto-text；看图选 auto-vision（或 auto-text 带图时自动升视觉池）。额度用尽会在同模态池内换连接并改写上游模型。</p>
-        </div>
-        <div class="card">
-          <h2>Agent 接线</h2>
-          <ul id="statusList" class="status-list"></ul>
-          <p class="muted small">改写后请重新打开 DSH / OpenCode。</p>
-          <div class="row">
-            <button type="button" id="btnRewire" class="btn">重新接线</button>
-          </div>
-        </div>
-        <details class="card">
-          <summary>高级</summary>
-          <label class="field">
-            <span>本机端口</span>
-            <input id="port" type="number" min="1024" max="65535" />
-          </label>
-          <label class="field">
-            <span>网关本地 Key</span>
-            <div class="row">
-              <input id="localApiKey" readonly />
-              <button type="button" id="btnCopyKey" class="btn ghost">复制</button>
+      <section id="panel-strategy" class="panel" role="tabpanel">
+        <div class="strategy-layout">
+          <div id="statStrip" class="stat-strip" aria-label="路由概览"></div>
+
+          <div class="strategy-grid">
+            <div class="surface-card">
+              <h2>轮换策略</h2>
+              <p class="card-desc">决定候选怎么排序、冷却多久，以及 Agent 默认用哪个逻辑模型。</p>
+
+              <div class="form-section">
+                <p class="form-section-title">路由</p>
+                <div class="field-grid">
+                  <label class="field span-2">
+                    <span>模式</span>
+                    <select id="strategyMode">
+                      <option value="priority">按优先级（数字越小越先）</option>
+                      <option value="round_robin">轮询可用连接</option>
+                    </select>
+                  </label>
+                  <label class="field span-2">
+                    <span>默认模型</span>
+                    <select id="defaultModel"></select>
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-section">
+                <p class="form-section-title">偏好</p>
+                <div class="option-stack">
+                  <label class="option-card">
+                    <input type="checkbox" id="preferFree" />
+                    <span class="opt-text">
+                      <span class="opt-title">优先 free / trial</span>
+                      <span class="opt-desc">同请求内先消耗免费与试用层，再落到廉价 / 付费</span>
+                    </span>
+                  </label>
+                  <label class="option-card">
+                    <input type="checkbox" id="preferReliable" />
+                    <span class="opt-text">
+                      <span class="opt-title">偏好历史更稳的上游</span>
+                      <span class="opt-desc">同档内略提高成功率更高的连接 / 模型排序权重</span>
+                    </span>
+                  </label>
+                  <label class="option-card">
+                    <input type="checkbox" id="injectPhysicalModels" />
+                    <span class="opt-text">
+                      <span class="opt-title">注入物理模型 id</span>
+                      <span class="opt-desc">高级：接线时除 auto-* 外也注入各连接真实模型名</span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-section">
+                <p class="form-section-title">冷却</p>
+                <div class="field-grid">
+                  <label class="field">
+                    <span>连接冷却（秒）</span>
+                    <input id="cooldownSeconds" type="number" min="30" max="3600" />
+                  </label>
+                  <label class="field">
+                    <span>模型冷却（秒）</span>
+                    <input id="modelCooldownSeconds" type="number" min="30" max="3600" />
+                  </label>
+                </div>
+              </div>
+
+              <div class="card-actions">
+                <button type="button" id="btnSaveStrategy" class="btn primary">保存策略并重新接线</button>
+              </div>
             </div>
-          </label>
-          <button type="button" id="btnSaveAdvanced" class="btn">保存高级设置</button>
-        </details>
+
+            <div class="surface-card">
+              <h2>Agent 接线</h2>
+              <p class="card-desc">改写后请重新打开 DSH / OpenCode，已开窗口不会自动切换模型列表。</p>
+              <ul id="statusList" class="kv-list"></ul>
+              <div class="card-actions" style="margin-top: 1rem">
+                <button type="button" id="btnRewire" class="btn">重新接线</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="surface-card">
+            <div class="card-actions" style="justify-content: space-between; margin-bottom: 0.35rem">
+              <h2 style="margin: 0">路由池与表现</h2>
+              <button type="button" id="btnResetRouteStats" class="btn ghost sm">清空统计</button>
+            </div>
+            <p class="card-desc">日常选 auto-text；看图选 auto-vision。额度用尽会在同模态池内换连接并改写上游模型。</p>
+            <div id="routePanel"></div>
+          </div>
+
+          <details class="surface-card advanced-card">
+            <summary>高级设置</summary>
+            <div class="advanced-body">
+              <div class="field-grid">
+                <label class="field">
+                  <span>本机端口</span>
+                  <input id="port" type="number" min="1024" max="65535" />
+                </label>
+                <label class="field span-2">
+                  <span>网关本地 Key</span>
+                  <div class="row">
+                    <input id="localApiKey" readonly />
+                    <button type="button" id="btnCopyKey" class="btn ghost">复制</button>
+                  </div>
+                </label>
+              </div>
+              <div class="card-actions" style="margin-top: 1rem">
+                <button type="button" id="btnSaveAdvanced" class="btn">保存高级设置</button>
+              </div>
+            </div>
+          </details>
+        </div>
       </section>
 
       <p id="toast" class="toast" hidden></p>
