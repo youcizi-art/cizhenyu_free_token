@@ -31,12 +31,16 @@
 
       <section id="panel-catalog" class="panel active" role="tabpanel">
         <p class="panel-intro">从目录注册拿 Key，再填入本机。密钥只保存在网关 home，不会写入 Agent 配置。</p>
-        <div class="filters" role="group" aria-label="按档位筛选">
-          <button type="button" class="chip active" data-tier="all">全部</button>
-          <button type="button" class="chip" data-tier="free">免费</button>
-          <button type="button" class="chip" data-tier="trial">试用</button>
-          <button type="button" class="chip" data-tier="cheap">廉价</button>
-          <button type="button" class="chip" data-tier="paid">付费/自定义</button>
+        <div class="filters-bar">
+          <div class="filters" role="group" aria-label="按档位筛选">
+            <button type="button" class="chip active" data-tier="all">全部</button>
+            <button type="button" class="chip" data-tier="free">免费</button>
+            <button type="button" class="chip" data-tier="trial">试用</button>
+            <button type="button" class="chip" data-tier="cheap">廉价</button>
+            <button type="button" class="chip" data-tier="paid">付费</button>
+            <button type="button" class="chip" data-tier="custom">自定义</button>
+          </div>
+          <button type="button" id="btnAddProvider" class="btn primary sm">添加</button>
         </div>
         <div id="catalogList" class="cards"></div>
       </section>
@@ -168,34 +172,177 @@
 
     <dialog id="connectDialog">
       <form id="connectForm" class="dialog">
-        <h3 id="connectTitle">填入密钥</h3>
-        <p id="connectHint" class="muted small"></p>
-        <input type="hidden" id="connProviderId" />
-        <input type="hidden" id="connEditId" value="" />
-        <label class="field">
-          <span>显示名称</span>
-          <input id="connLabel" required />
-        </label>
-        <label class="field" id="baseUrlField">
-          <span>Base URL</span>
-          <input id="connBaseUrl" />
-        </label>
-        <label class="field">
-          <span>API Key</span>
-          <input id="connApiKey" type="password" autocomplete="off" placeholder="编辑时留空则保持原密钥" />
-        </label>
-        <label class="field">
-          <span>模型 id（逗号分隔）</span>
-          <input id="connModels" placeholder="例如 openai/gpt-oss-20b, qwen/qwen3.8-27b" />
-        </label>
-        <label class="field">
-          <span>优先级（越小越先）</span>
-          <input id="connPriority" type="number" value="10" />
-        </label>
-        <div class="row end">
+        <header class="dialog-header">
+          <div class="dialog-header-text">
+            <h3 id="connectTitle">填入密钥</h3>
+            <p id="connectHint" class="muted small"></p>
+          </div>
+          <button type="button" class="dialog-close" data-close-dialog="connectDialog" aria-label="关闭">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </header>
+        <div class="dialog-body">
+          <input type="hidden" id="connProviderId" />
+          <input type="hidden" id="connEditId" value="" />
+          <label class="field">
+            <span>显示名称</span>
+            <input id="connLabel" required />
+          </label>
+          <label class="field" id="baseUrlField">
+            <span>Base URL</span>
+            <input id="connBaseUrl" />
+          </label>
+          <label class="field">
+            <span>API Key</span>
+            <input id="connApiKey" type="password" autocomplete="off" placeholder="编辑时留空则保持原密钥" />
+          </label>
+          <label class="field">
+            <span>模型 id（逗号分隔）</span>
+            <input id="connModels" placeholder="例如 openai/gpt-oss-20b, qwen/qwen3.8-27b" />
+          </label>
+          <label class="field">
+            <span>优先级（越小越先）</span>
+            <input id="connPriority" type="number" value="10" />
+          </label>
+        </div>
+        <footer class="dialog-footer">
           <button type="button" id="btnConnectCancel" class="btn ghost" value="cancel">取消</button>
           <button type="submit" class="btn primary">保存连接</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="providerDialog">
+      <form id="providerForm" class="dialog dialog-wide">
+        <header class="dialog-header">
+          <div class="dialog-header-text">
+            <h3 id="providerTitle">添加供应商</h3>
+            <p class="muted small">保存到本机商家目录；填写 API Key 时会同时创建连接并参与轮换。</p>
+          </div>
+          <button type="button" class="dialog-close" data-close-dialog="providerDialog" aria-label="关闭">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </header>
+        <div class="dialog-body">
+          <input type="hidden" id="provEditId" value="" />
+          <label class="field">
+            <span>标题</span>
+            <input id="provName" required maxlength="80" placeholder="例如 我的中转 / 公司内网 LLM" />
+          </label>
+          <label class="field">
+            <span>描述</span>
+            <textarea id="provNotes" rows="2" placeholder="一句话说明用途或注意事项"></textarea>
+          </label>
+          <label class="field">
+            <span>模型 id（逗号分隔）</span>
+            <input id="provModels" placeholder="例如 glm-4.7-flash, gemini-3.5-flash-lite" />
+          </label>
+          <label class="field">
+            <span>Base URL</span>
+            <input id="provBaseUrl" required placeholder="https://api.example.com/v1" />
+          </label>
+          <label class="field">
+            <span>API Key</span>
+            <input id="provApiKey" type="password" autocomplete="off" placeholder="可选；填写则同时建立连接" />
+          </label>
+          <label class="field">
+            <span>优先级（越小越先）</span>
+            <input id="provPriority" type="number" value="30" min="1" max="999" />
+          </label>
+          <label class="field">
+            <span>指南</span>
+            <textarea id="provGuide" rows="2" placeholder="额度说明、地区限制等；保存后以小字展示"></textarea>
+          </label>
+          <div class="field-grid">
+            <label class="field">
+              <span>注册链接</span>
+              <input id="provSignupUrl" type="url" placeholder="https://…" />
+            </label>
+            <label class="field">
+              <span>文档链接</span>
+              <input id="provDocsUrl" type="url" placeholder="https://…" />
+            </label>
+          </div>
+          <fieldset class="field">
+            <legend>接入范式</legend>
+            <div class="option-stack compact">
+              <label class="option-card">
+                <input type="radio" name="provProtocol" value="openai" checked />
+                <span class="opt-text">
+                  <span class="opt-title">OpenAI（通用）</span>
+                  <span class="opt-desc">当前网关上游默认按此兼容调用</span>
+                </span>
+              </label>
+              <label class="option-card">
+                <input type="radio" name="provProtocol" value="anthropic" />
+                <span class="opt-text">
+                  <span class="opt-title">Anthropic（Claude）</span>
+                  <span class="opt-desc">请填 OpenAI 兼容端点，或后续扩展原生协议</span>
+                </span>
+              </label>
+              <label class="option-card">
+                <input type="radio" name="provProtocol" value="google-gemini" />
+                <span class="opt-text">
+                  <span class="opt-title">Google Gemini</span>
+                  <span class="opt-desc">推荐官方 v1beta/openai 兼容 Base URL</span>
+                </span>
+              </label>
+            </div>
+          </fieldset>
+          <fieldset class="field">
+            <legend>分类（可多选）</legend>
+            <div class="check-row" id="provTiers" role="group" aria-label="分类多选">
+              <label class="check-pill" data-tier="free">
+                <input type="checkbox" value="free" />
+                <span class="check-pill-label">免费</span>
+              </label>
+              <label class="check-pill" data-tier="trial">
+                <input type="checkbox" value="trial" />
+                <span class="check-pill-label">试用</span>
+              </label>
+              <label class="check-pill" data-tier="cheap">
+                <input type="checkbox" value="cheap" />
+                <span class="check-pill-label">廉价</span>
+              </label>
+              <label class="check-pill" data-tier="paid">
+                <input type="checkbox" value="paid" />
+                <span class="check-pill-label">付费</span>
+              </label>
+              <label class="check-pill" data-tier="custom">
+                <input type="checkbox" value="custom" checked />
+                <span class="check-pill-label">自定义</span>
+              </label>
+            </div>
+          </fieldset>
         </div>
+        <footer class="dialog-footer">
+          <button type="button" id="btnProviderCancel" class="btn ghost">取消</button>
+          <button type="submit" class="btn primary">保存</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="confirmDialog">
+      <form id="confirmForm" class="dialog dialog-confirm" method="dialog">
+        <header class="dialog-header">
+          <div class="dialog-header-text">
+            <h3 id="confirmTitle">确认操作</h3>
+            <p id="confirmMessage" class="muted small"></p>
+          </div>
+          <button type="button" class="dialog-close" data-close-dialog="confirmDialog" aria-label="关闭">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </header>
+        <footer class="dialog-footer">
+          <button type="button" id="btnConfirmCancel" class="btn ghost">取消</button>
+          <button type="submit" id="btnConfirmOk" class="btn danger">确认删除</button>
+        </footer>
       </form>
     </dialog>
 

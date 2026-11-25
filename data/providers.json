@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "updatedAt": "2026-03-23",
-  "note": "静态策展目录（可维护）。免费/试用政策与模型 id 会变，以商家官网为准。下一期可接外部信息源。",
+  "updatedAt": "2026-11-25",
+  "note": "静态策展目录（2026-11-25 对照官方文档/公开 models API 修订）。免费策略与模型 id 仍可能变动，以商家官网为准。",
   "providers": [
     {
       "id": "openrouter-free",
@@ -12,26 +12,29 @@
       "signupUrl": "https://openrouter.ai/keys",
       "docsUrl": "https://openrouter.ai/docs",
       "models": [
-        "openrouter/free",
-        "google/gemma-4-31b-it:free",
-        "google/gemma-4-26b-a4b-it:free",
-        "nvidia/nemotron-3-ultra-550b-a55b:free",
-        "nvidia/nemotron-3.5-lightning:free",
-        "nvidia/nemotron-3.5-super-vl:free",
-        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-        "cohere/north-mini-code:free",
-        "dots-studio/dots-3-note-preview:free",
+        "inclusionai/ling-3.2-flash:free",
+        "baidu/ernie-5.5-flash-preview:free",
+        "liquid/lfm-3-1.7b:free",
+        "particle-ai/particle-1:free",
         "recursive/flint-v1.0:free",
-        "meta-llama/llama-3.3-70b-instruct:free",
-        "qwen/qwen3-32b:free",
-        "deepseek/deepseek-r1:free",
-        "mistralai/mistral-small-3.1-24b-instruct:free"
+        "nvidia/nemotron-3.5-super-vl:free",
+        "nvidia/nemotron-3.5-lightning:free",
+        "nvidia/nemotron-3-ultra-550b-a55b:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "google/gemma-4-26b-a4b-it:free",
+        "google/gemma-4-31b-it:free"
       ],
       "quotaHint": "约 20 RPM / 50 RPD；充值 ≥$10 后免费模型可到 1000 RPD",
-      "notes": "一个 Key 覆盖多家 :free 模型。优先用 openrouter/free 自动路由，或在控制台复制带 :free 的具体 id。",
+      "notes": "2026-11 公开 /models 仅见上述 :free id（已无 openrouter/free、llama/qwen/deepseek 旧免费项）。目录会轮换，连接后建议再对一下控制台。",
       "modelCapabilities": {
-        "nvidia/nemotron-3.5-super-vl:free": ["text", "image"],
-        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": ["text", "image"]
+        "nvidia/nemotron-3.5-super-vl:free": [
+          "text",
+          "image"
+        ],
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": [
+          "text",
+          "image"
+        ]
       }
     },
     {
@@ -49,7 +52,7 @@
       ],
       "modelCapabilities": {},
       "quotaHint": "免费层约 30 RPM / 1K RPD，TPM 较紧，适合短请求",
-      "notes": "极速推理。2026-08 起免费层已下线 Llama 3.1/3.3 等；请用 gpt-oss / qwen3.8。模型列表以 console.groq.com/docs/models 为准。"
+      "notes": "极速推理。Llama 3.1/3.3 等已按官方 deprecations 下线；请用 gpt-oss / qwen3.8。以 console.groq.com/docs/models 为准。"
     },
     {
       "id": "google-ai-studio",
@@ -59,15 +62,20 @@
       "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai",
       "signupUrl": "https://aistudio.google.com/apikey",
       "docsUrl": "https://ai.google.dev/gemini-api/docs/openai",
-      "capabilities": ["text", "image"],
+      "capabilities": [
+        "text",
+        "image"
+      ],
       "models": [
         "gemini-3.5-flash-lite",
         "gemini-3.1-flash-lite",
         "gemini-3.6-flash",
-        "gemini-3.8-flash"
+        "gemini-3.7-flash",
+        "gemini-3.8-flash",
+        "gemini-flash-lite-latest"
       ],
       "quotaHint": "免费层按模型有 RPM/日限额；免费内容可能用于改进产品",
-      "notes": "AI Studio API Key + OpenAI 兼容端点。3.8 高峰常 503，目录把 lite 放前；点名 3.8 失败时 remap 会回退到同连接其它模型。"
+      "notes": "AI Studio OpenAI 兼容端点。2.x/Gemma3 对新账号多不可用；3.8 高峰常 503。live /openai/models 核对于 2026-11。"
     },
     {
       "id": "cerebras",
@@ -79,13 +87,10 @@
       "docsUrl": "https://inference-docs.cerebras.ai/",
       "models": [
         "gpt-oss-120b",
-        "llama3.1-8b",
-        "llama-3.3-70b",
-        "qwen-3-32b",
-        "zai-glm-4.7"
+        "qwen-3.8-27b"
       ],
       "quotaHint": "免费/试用额度与模型目录变动较快，以控制台为准",
-      "notes": "高吞吐。部分地区可能要求绑卡领试用。"
+      "notes": "Shared Inference 当前目录仅此二 id（旧 llama/qwen-3-32b/zai-glm 已不在 overview）。"
     },
     {
       "id": "mistral",
@@ -98,17 +103,21 @@
       "models": [
         "mistral-small-latest",
         "mistral-medium-latest",
+        "mistral-large-latest",
+        "ministral-14b-latest",
         "ministral-8b-latest",
         "ministral-3b-latest",
-        "open-mistral-nemo",
         "codestral-latest",
         "pixtral-large-latest"
       ],
       "modelCapabilities": {
-        "pixtral-large-latest": ["text", "image"]
+        "pixtral-large-latest": [
+          "text",
+          "image"
+        ]
       },
       "quotaHint": "实验/试用额度以控制台为准",
-      "notes": "注册创建 Key。codestral 适合写代码；看图用 pixtral。"
+      "notes": "优先 *-latest 别名。open-mistral-nemo / 旧 small-3.x 已在官方 retired 表。看图用 pixtral-large-latest。"
     },
     {
       "id": "cohere",
@@ -120,13 +129,13 @@
       "docsUrl": "https://docs.cohere.com/",
       "models": [
         "command-a-03-2025",
-        "command-r-plus",
-        "command-r",
-        "command-r7b-12-2024",
-        "c4ai-aya-expanse-32b"
+        "command-a-reasoning-08-2025",
+        "command-r-plus-08-2024",
+        "command-r-08-2024",
+        "command-r7b-12-2024"
       ],
       "quotaHint": "Trial Key 约 1000 次/月；注意非商用条款",
-      "notes": "走 OpenAI 兼容端点。正式商用请换生产 Key。"
+      "notes": "走 OpenAI 兼容端点。command-r / command-r-plus 无日期后缀已 Deprecated（2025-09）。"
     },
     {
       "id": "nvidia-nim",
@@ -140,15 +149,13 @@
         "nvidia/nemotron-3-ultra-550b-a55b",
         "openai/gpt-oss-120b",
         "openai/gpt-oss-20b",
+        "nvidia/llama-3.3-nemotron-super-49b-v1.5",
         "meta/llama-3.3-70b-instruct",
-        "meta/llama-3.1-8b-instruct",
-        "qwen/qwen2.5-coder-32b-instruct",
         "deepseek-ai/deepseek-r1",
-        "mistralai/mistral-small-3.1-24b-instruct-2503",
         "google/gemma-3-27b-it"
       ],
       "quotaHint": "开发者免费额度，按模型限流，适合原型",
-      "notes": "NVIDIA 账号领取 API Key。模型 id 以 build.nvidia.com 为准。"
+      "notes": "NVIDIA 账号领取 API Key。模型 id 以 build.nvidia.com 卡片为准（区分 URL slug 与 API id）。"
     },
     {
       "id": "together",
@@ -159,16 +166,15 @@
       "signupUrl": "https://api.together.xyz/settings/api-keys",
       "docsUrl": "https://docs.together.ai/",
       "models": [
+        "openai/gpt-oss-120b",
+        "Qwen/Qwen3.5-9B",
+        "zai-org/GLM-5.3-Flash",
         "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
-        "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
-        "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-        "Qwen/Qwen2.5-72B-Instruct-Turbo",
         "Qwen/Qwen2.5-Coder-32B-Instruct",
-        "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
-        "mistralai/Mistral-Small-24B-Instruct-2501"
+        "deepseek-ai/DeepSeek-R1-Distill-Llama-70B"
       ],
       "quotaHint": "新用户常有试用 credit",
-      "notes": "注册领 credit → 创建 Key → 回填。"
+      "notes": "Llama-3.3-70B-Instruct-Turbo 已在官方 scheduled deprecations。DeepSeek-V3/R1 无后缀可能被重定向到新版。"
     },
     {
       "id": "fireworks",
@@ -179,15 +185,13 @@
       "signupUrl": "https://fireworks.ai/account/api-keys",
       "docsUrl": "https://docs.fireworks.ai/",
       "models": [
-        "accounts/fireworks/models/llama-v3p3-70b-instruct",
-        "accounts/fireworks/models/llama-v3p1-8b-instruct",
-        "accounts/fireworks/models/qwen2p5-72b-instruct",
-        "accounts/fireworks/models/deepseek-r1",
+        "accounts/fireworks/models/kimi-k2p5",
         "accounts/fireworks/models/deepseek-v3",
-        "accounts/fireworks/models/mixtral-8x22b-instruct"
+        "accounts/fireworks/models/llama-v3p1-8b-instruct",
+        "accounts/fireworks/models/qwen2p5-72b-instruct"
       ],
       "quotaHint": "试用 credit 以账户为准",
-      "notes": "创建 Key 后回填；模型 id 以控制台为准。"
+      "notes": "必须用 accounts/fireworks/models/… 全路径。mixtral-8x22b / 旧 llama-v3p3 等请以控制台为准。"
     },
     {
       "id": "deepinfra",
@@ -198,16 +202,15 @@
       "signupUrl": "https://deepinfra.com/dash/api_keys",
       "docsUrl": "https://deepinfra.com/docs",
       "models": [
-        "meta-llama/Meta-Llama-3.1-8B-Instruct",
-        "meta-llama/Meta-Llama-3.1-70B-Instruct",
-        "meta-llama/Llama-3.3-70B-Instruct",
-        "Qwen/Qwen2.5-72B-Instruct",
-        "deepseek-ai/DeepSeek-V3",
-        "deepseek-ai/DeepSeek-R1",
-        "mistralai/Mistral-Small-24B-Instruct-2501"
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
+        "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        "deepseek-ai/DeepSeek-V4-Flash",
+        "zai-org/GLM-4.7",
+        "Qwen/Qwen2.5-72B-Instruct"
       ],
       "quotaHint": "新用户试用额度；耗尽后按量付费",
-      "notes": "OpenAI 兼容。适合作为廉价回退层。"
+      "notes": "目录取自 DeepInfra text-generation 浏览器常用项；试用额度耗尽后按量。"
     },
     {
       "id": "sambanova",
@@ -218,15 +221,15 @@
       "signupUrl": "https://cloud.sambanova.ai/",
       "docsUrl": "https://docs.sambanova.ai/",
       "models": [
+        "gpt-oss-120b",
+        "MiniMax-M3.1-Flash",
+        "gemma-4-31B-it",
+        "GLM-5.3",
         "Meta-Llama-3.3-70B-Instruct",
-        "Meta-Llama-3.1-8B-Instruct",
-        "Meta-Llama-3.1-405B-Instruct",
-        "DeepSeek-R1",
-        "DeepSeek-V3-0324",
         "Qwen3-32B"
       ],
       "quotaHint": "常有试用 credit，可能需绑卡",
-      "notes": "控制台创建 Key。模型 id 以云控制台为准。"
+      "notes": "以 docs.sambanova.ai SambaCloud models 为准；部分为 Preview，可能短通知下线。"
     },
     {
       "id": "hyperbolic",
@@ -238,13 +241,12 @@
       "docsUrl": "https://docs.hyperbolic.xyz/",
       "models": [
         "meta-llama/Meta-Llama-3.1-8B-Instruct",
-        "meta-llama/Meta-Llama-3.1-70B-Instruct",
         "meta-llama/Llama-3.3-70B-Instruct",
         "Qwen/Qwen2.5-72B-Instruct",
         "deepseek-ai/DeepSeek-V3"
       ],
       "quotaHint": "新用户常有 credit",
-      "notes": "注册领额度后创建 Key。"
+      "notes": "注册领额度后创建 Key。模型以 app.hyperbolic.xyz 为准。"
     },
     {
       "id": "llm7",
@@ -256,13 +258,13 @@
       "docsUrl": "https://docs.llm7.io/",
       "models": [
         "gpt-oss:20b",
+        "gpt-oss:120b",
         "mistral-nemo-instruct-2407",
-        "codestral-latest",
         "llama3.1-8b",
         "qwen2.5-coder-7b"
       ],
       "quotaHint": "免费 token 有 RPM/时限；匿名也能试 turbo",
-      "notes": "到 token.llm7.io 领免费 token 当作 API Key。目录会轮换。"
+      "notes": "到 token.llm7.io 领免费 token。目录轮换快。"
     },
     {
       "id": "ovhcloud",
@@ -281,7 +283,10 @@
         "Qwen3-32B"
       ],
       "modelCapabilities": {
-        "Qwen2.5-VL-72B-Instruct": ["text", "image"]
+        "Qwen2.5-VL-72B-Instruct": [
+          "text",
+          "image"
+        ]
       },
       "quotaHint": "匿名约 2 RPM/模型/IP；更高额度需账号",
       "notes": "EU 托管。匿名可先用占位 Key（如 ovh-anon）试通。"
@@ -296,14 +301,13 @@
       "docsUrl": "https://kilo.ai/docs/gateway/models-and-providers",
       "models": [
         "kilo-auto/free",
-        "openrouter/free",
         "nvidia/nemotron-3-ultra-550b-a55b:free",
         "nvidia/nemotron-3.5-lightning:free",
-        "cohere/north-mini-code:free",
-        "stealth/glyph-cluster"
+        "google/gemma-4-31b-it:free",
+        "recursive/flint-v1.0:free"
       ],
       "quotaHint": "约 200 req/hr/IP；免费池变动快",
-      "notes": "免费池可无 Key 或任意占位 Key。优先 kilo-auto/free。"
+      "notes": "免费池可无 Key 或占位 Key。优先 kilo-auto/free；勿再依赖已下线的 openrouter/free。"
     },
     {
       "id": "cloudflare-workers-ai",
@@ -333,19 +337,16 @@
       "signupUrl": "https://cloud.siliconflow.cn/account/ak",
       "docsUrl": "https://docs.siliconflow.cn/",
       "models": [
+        "Qwen/Qwen3-8B",
         "Qwen/Qwen2.5-7B-Instruct",
         "Qwen/Qwen2.5-14B-Instruct",
-        "Qwen/Qwen2.5-32B-Instruct",
-        "Qwen/Qwen2.5-72B-Instruct",
         "Qwen/Qwen2.5-Coder-32B-Instruct",
-        "deepseek-ai/DeepSeek-V3",
+        "deepseek-ai/DeepSeek-V3.1",
         "deepseek-ai/DeepSeek-R1",
-        "deepseek-ai/DeepSeek-V2.5",
-        "THUDM/glm-4-9b-chat",
-        "internlm/internlm2_5-20b-chat"
+        "THUDM/glm-4-9b-chat"
       ],
       "quotaHint": "部分模型永久免费；多数按量。国内需实名",
-      "notes": "国内可达性好。免费模型以控制台标价为准，付费模型填入即作廉价层。"
+      "notes": "国内可达性好。免费/标价以控制台为准；优先 Qwen3 / DeepSeek-V3.1。"
     },
     {
       "id": "modelscope",
@@ -356,17 +357,16 @@
       "signupUrl": "https://modelscope.cn/my/myaccesstoken",
       "docsUrl": "https://modelscope.cn/docs/model-service/API-Inference/intro",
       "models": [
+        "Qwen/Qwen3-8B",
         "Qwen/Qwen2.5-7B-Instruct",
         "Qwen/Qwen2.5-14B-Instruct",
-        "Qwen/Qwen2.5-32B-Instruct",
-        "Qwen/Qwen2.5-72B-Instruct",
         "Qwen/Qwen2.5-Coder-32B-Instruct",
         "Qwen/QwQ-32B",
         "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
         "LLM-Research/Meta-Llama-3.1-8B-Instruct"
       ],
       "quotaHint": "注册用户免费推理；约 2000 RPD 总限额（动态）",
-      "notes": "需阿里云账号绑定与实名。适合国内免费额度。"
+      "notes": "需阿里云账号绑定与实名。模型以魔搭推理控制台当前列表为准。"
     },
     {
       "id": "zhipu",
@@ -377,18 +377,25 @@
       "signupUrl": "https://open.bigmodel.cn/usercenter/apikeys",
       "docsUrl": "https://docs.bigmodel.cn/",
       "models": [
+        "glm-5.3-flash",
         "glm-4.7-flash",
         "glm-4.5-flash",
-        "glm-4-flash",
         "glm-4-flash-250414",
-        "glm-4v-flash",
-        "glm-z1-flash"
+        "glm-4.6v-flash",
+        "glm-4.1v-thinking-flash"
       ],
       "modelCapabilities": {
-        "glm-4v-flash": ["text", "image"]
+        "glm-4.6v-flash": [
+          "text",
+          "image"
+        ],
+        "glm-4.1v-thinking-flash": [
+          "text",
+          "image"
+        ]
       },
       "quotaHint": "Flash 系列常有永久免费额度，并发有限",
-      "notes": "国内用 open.bigmodel.cn；国际站可用 api.z.ai。看图用 glm-4v-flash。"
+      "notes": "国内 open.bigmodel.cn；国际站 api.z.ai。旧 glm-4-flash / glm-4v-flash / glm-z1-flash 已不在当前 Flash 主推列表。看图用 glm-4.6v-flash。"
     },
     {
       "id": "deepseek",
@@ -398,9 +405,14 @@
       "baseUrl": "https://api.deepseek.com/v1",
       "signupUrl": "https://platform.deepseek.com/api_keys",
       "docsUrl": "https://api-docs.deepseek.com/",
-      "models": ["deepseek-chat", "deepseek-reasoner"],
+      "models": [
+        "deepseek-flash",
+        "deepseek-v4-pro",
+        "deepseek-chat",
+        "deepseek-reasoner"
+      ],
       "quotaHint": "按量付费，价格低；偶有活动额度",
-      "notes": "免费额度用尽后的廉价主力层。"
+      "notes": "主力 id 为 deepseek-flash / deepseek-v4-pro；chat/reasoner 为兼容保留。按量付费。"
     },
     {
       "id": "moonshot",
@@ -411,14 +423,12 @@
       "signupUrl": "https://platform.moonshot.cn/console/api-keys",
       "docsUrl": "https://platform.moonshot.cn/docs",
       "models": [
-        "moonshot-v1-8k",
-        "moonshot-v1-32k",
-        "moonshot-v1-128k",
-        "kimi-latest",
-        "kimi-thinking-preview"
+        "kimi-k3.1-pro",
+        "kimi-k3.1-pro-highspeed",
+        "kimi-k3"
       ],
       "quotaHint": "新用户常有免费额度",
-      "notes": "国内平台。长上下文场景可试。"
+      "notes": "moonshot-v1-*、kimi-latest、kimi-thinking-preview 等已对官方标为下线/不对新用户开放。"
     },
     {
       "id": "dashscope",
@@ -429,17 +439,23 @@
       "signupUrl": "https://bailian.console.aliyun.com/",
       "docsUrl": "https://help.aliyun.com/zh/model-studio/",
       "models": [
-        "qwen-turbo",
         "qwen-plus",
+        "qwen-turbo",
         "qwen-max",
+        "qwen4-max",
         "qwen-coder-plus",
-        "qwen-long",
-        "qwq-plus",
-        "deepseek-r1",
-        "deepseek-v3"
+        "qwen3-vl-plus",
+        "deepseek-v3",
+        "deepseek-r1"
       ],
       "quotaHint": "新用户常有免费 token；之后按量",
-      "notes": "OpenAI 兼容模式。适合国内稳定廉价层。"
+      "notes": "OpenAI 兼容模式。优先 qwen-plus / qwen4-max；看图用 qwen3-vl-plus。",
+      "modelCapabilities": {
+        "qwen3-vl-plus": [
+          "text",
+          "image"
+        ]
+      }
     },
     {
       "id": "volcengine",
@@ -450,14 +466,14 @@
       "signupUrl": "https://console.volcengine.com/ark",
       "docsUrl": "https://www.volcengine.com/docs/82379",
       "models": [
-        "doubao-1-5-pro-32k",
-        "doubao-1-5-lite-32k",
         "doubao-seed-1-6-250615",
+        "doubao-1-5-pro-32k-250115",
+        "doubao-1-5-lite-32k",
         "deepseek-r1-250120",
         "deepseek-v3-250324"
       ],
       "quotaHint": "新用户试用额度；模型 id 常为接入点名",
-      "notes": "控制台创建接入点后，把模型 id 换成你的 endpoint id。"
+      "notes": "控制台创建接入点后，常需把模型 id 换成你的 endpoint id。"
     },
     {
       "id": "minimax",
@@ -468,13 +484,11 @@
       "signupUrl": "https://platform.minimaxi.com/",
       "docsUrl": "https://platform.minimaxi.com/document/Announcement",
       "models": [
-        "MiniMax-Text-01",
-        "MiniMax-M1",
-        "abab6.5s-chat",
-        "abab6.5-chat"
+        "MiniMax-M3.1-Flash",
+        "MiniMax-M3"
       ],
       "quotaHint": "新用户试用额度以控制台为准",
-      "notes": "注册创建 Key。具体模型名以平台文档为准。"
+      "notes": "旧 MiniMax-Text-01 / abab6.5* 已不在当前文档主推。OpenAI 兼容 list-models 以平台为准。"
     },
     {
       "id": "aion-labs",
@@ -508,19 +522,20 @@
         "mimo-v2.6-flash"
       ],
       "quotaHint": "约 3M tokens / 30 天（账户共享）",
-      "notes": "EU 托管开源模型。免绑卡永久免费层。"
+      "notes": "EU 托管开源模型。免绑卡永久免费层；id 以 console.axforge.ai 为准。"
     },
     {
       "id": "custom",
       "name": "自定义 OpenAI 兼容",
-      "tier": "paid",
+      "tier": "custom",
+      "tiers": ["custom"],
       "protocol": "openai",
       "baseUrl": "",
       "signupUrl": "",
       "docsUrl": "",
       "models": [],
       "quotaHint": "自备地址与 Key",
-      "notes": "任意 OpenAI 兼容网关。需手填 Base URL 与模型 id。"
+      "notes": "任意 OpenAI 兼容网关。需手填 Base URL 与模型 id。也可用右上角「添加」新建带分类的自定义商家。"
     }
   ]
 }

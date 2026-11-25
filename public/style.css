@@ -28,6 +28,8 @@
   --cheap-bg: rgba(161, 98, 7, 0.1);
   --paid: #475569;
   --paid-bg: rgba(71, 85, 105, 0.1);
+  --custom: #6d28d9;
+  --custom-bg: rgba(109, 40, 217, 0.1);
   --radius: 14px;
   --radius-sm: 10px;
   --shadow: 0 1px 2px rgba(28, 36, 41, 0.04), 0 8px 24px rgba(28, 36, 41, 0.04);
@@ -194,11 +196,19 @@ h1 {
 }
 
 /* —— Filters —— */
+.filters-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin-bottom: 1.1rem;
+}
+
 .filters {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
-  margin-bottom: 1.1rem;
 }
 
 .chip {
@@ -313,6 +323,16 @@ h1 {
 .tier.paid {
   background: var(--paid-bg);
   color: var(--paid);
+}
+.tier.custom {
+  background: var(--custom-bg);
+  color: var(--custom);
+}
+
+.tier-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
 }
 
 .models {
@@ -1004,8 +1024,217 @@ dialog {
   border-radius: 16px;
   padding: 0;
   width: min(440px, calc(100vw - 2rem));
+  max-height: min(86vh, 840px);
   box-shadow: 0 24px 60px rgba(28, 36, 41, 0.22);
   background: var(--surface);
+  overflow: hidden;
+}
+
+dialog:has(.dialog-wide) {
+  width: min(560px, calc(100vw - 2rem));
+}
+
+dialog:has(.dialog-confirm) {
+  width: min(400px, calc(100vw - 2rem));
+}
+
+.dialog-confirm .dialog-body {
+  display: none;
+}
+
+.dialog-confirm .dialog-header {
+  border-bottom: none;
+  padding-bottom: 0.35rem;
+}
+
+.dialog-confirm .dialog-footer {
+  border-top: none;
+  padding-top: 0.35rem;
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  max-height: min(86vh, 840px);
+  padding: 0;
+  margin: 0;
+}
+
+.dialog-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1.15rem 1.25rem 0.85rem 1.4rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.dialog-header-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.dialog-header h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+}
+
+.dialog-header .muted.small {
+  margin: 0.35rem 0 0;
+}
+
+.dialog-close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  margin: -0.15rem -0.2rem 0 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.dialog-close:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.dialog-close:active {
+  transform: scale(0.96);
+}
+
+.dialog-close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem 1.4rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dialog-footer {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  padding: 0.85rem 1.4rem 1.15rem;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.dialog fieldset.field {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 0.85rem 0.85rem;
+  margin: 0 0 0.85rem;
+}
+
+.dialog fieldset.field legend {
+  padding: 0 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.option-stack.compact {
+  gap: 0.45rem;
+}
+
+.check-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* 分类：纯文字切换芯片；原生 checkbox 仅保留可访问性，不参与排版 */
+.check-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2rem;
+  padding: 0.35rem 0.95rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.12s ease;
+}
+
+.check-pill input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.check-pill-label {
+  pointer-events: none;
+}
+
+.check-pill:hover {
+  border-color: rgba(15, 118, 110, 0.35);
+  color: var(--ink);
+}
+
+.check-pill:active {
+  transform: scale(0.97);
+}
+
+.check-pill:has(input:focus-visible) {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.check-pill:has(input:checked) {
+  border-color: transparent;
+  font-weight: 600;
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(28, 36, 41, 0.08);
+}
+
+.check-pill[data-tier="free"]:has(input:checked) {
+  background: var(--free);
+}
+.check-pill[data-tier="trial"]:has(input:checked) {
+  background: var(--trial);
+}
+.check-pill[data-tier="cheap"]:has(input:checked) {
+  background: var(--cheap);
+}
+.check-pill[data-tier="paid"]:has(input:checked) {
+  background: var(--paid);
+}
+.check-pill[data-tier="custom"]:has(input:checked) {
+  background: var(--custom);
 }
 
 dialog::backdrop {
@@ -1013,19 +1242,13 @@ dialog::backdrop {
   backdrop-filter: blur(2px);
 }
 
-.dialog {
-  padding: 1.35rem 1.4rem 1.4rem;
-}
-
-.dialog h3 {
-  margin: 0 0 0.35rem;
-  font-family: var(--font-display);
-  font-size: 1.15rem;
-  letter-spacing: -0.02em;
-}
-
 .dialog .field {
   margin-bottom: 0.85rem;
+}
+
+.dialog-body > .field:last-child,
+.dialog-body > fieldset.field:last-child {
+  margin-bottom: 0;
 }
 
 .empty {

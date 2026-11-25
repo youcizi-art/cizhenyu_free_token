@@ -20,7 +20,13 @@ import {
   removeConnection,
   genId,
 } from "./lib/config.mjs";
-import { publicCatalog, getProvider } from "./lib/catalog.mjs";
+import {
+  publicCatalog,
+  getProvider,
+  upsertCustomProvider,
+  removeCustomProvider,
+  primaryTier,
+} from "./lib/catalog.mjs";
 import {
   proxyChatCompletions,
   proxyChatCompletionsStream,
@@ -156,6 +162,73 @@ async function handle(req, res) {
 
   if (path === "/api/catalog" && req.method === "GET") {
     sendJson(res, 200, publicCatalog());
+    return;
+  }
+
+  /** 用户自定义商家：写入 home/custom-providers.json，可选同时建连接 */
+  if (path === "/api/catalog/custom" && req.method === "POST") {
+    let body;
+    try {
+      body = await readJson(req);
+    } catch {
+      sendJson(res, 400, { error: "invalid json" });
+      return;
+    }
+    let provider;
+    let created;
+    try {
+      ({ provider, created } = upsertCustomProvider(body));
+    } catch (e) {
+      sendJson(res, 400, { error: String(e?.message || e) });
+      return;
+    }
+
+    let saved = cfg;
+    const apiKey = String(body.apiKey || "").trim();
+    const connect = body.connect !== false && Boolean(apiKey);
+    if (connect) {
+      const priority =
+        Number(body.priority ?? body.defaultPriority) > 0
+          ? Number(body.priority ?? body.defaultPriority)
+          : provider.tier === "free"
+            ? 10
+            : provider.tier === "trial"
+              ? 20
+              : 30;
+      saved = upsertConnection(cfg, {
+        id: genId("conn"),
+        providerId: provider.id,
+        label: provider.name,
+        apiKey,
+        baseUrl: provider.baseUrl || String(body.baseUrl || "").trim(),
+        models: [...(provider.models || [])],
+        enabled: true,
+        priority,
+        tier: primaryTier(provider),
+      });
+    }
+    const wire = connect ? tryApplyWire() : wireStatus();
+    sendJson(res, 200, {
+      ok: true,
+      created,
+      catalog: publicCatalog(),
+      provider,
+      ...(connect
+        ? { ...publicConfigView(saved), wire }
+        : { ...publicConfigView(cfg), wire }),
+    });
+    return;
+  }
+
+  if (path.startsWith("/api/catalog/custom/") && req.method === "DELETE") {
+    const id = decodeURIComponent(path.slice("/api/catalog/custom/".length));
+    try {
+      removeCustomProvider(id);
+    } catch (e) {
+      sendJson(res, 400, { error: String(e?.message || e) });
+      return;
+    }
+    sendJson(res, 200, { ok: true, catalog: publicCatalog() });
     return;
   }
 

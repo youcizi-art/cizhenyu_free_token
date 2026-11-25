@@ -16,7 +16,25 @@ function toast(msg) {
 }
 
 function tierLabel(t) {
-  return ({ free: "免费", trial: "试用", cheap: "廉价", paid: "付费" }[t] || t);
+  return (
+    { free: "免费", trial: "试用", cheap: "廉价", paid: "付费", custom: "自定义" }[t] || t
+  );
+}
+
+function providerTiers(p) {
+  if (Array.isArray(p?.tiers) && p.tiers.length) return p.tiers.map(String);
+  return p?.tier ? [String(p.tier)] : ["paid"];
+}
+
+function providerMatchesFilter(p) {
+  if (tierFilter === "all") return true;
+  return providerTiers(p).includes(tierFilter);
+}
+
+function tierBadgesHtml(p) {
+  return `<div class="tier-row">${providerTiers(p)
+    .map((t) => `<span class="tier ${escapeHtml(t)}">${tierLabel(t)}</span>`)
+    .join("")}</div>`;
 }
 
 function escapeHtml(s) {
@@ -211,9 +229,9 @@ async function openExternal(url) {
 
 function renderCatalog() {
   const root = $("catalogList");
-  const list = (catalog.providers || []).filter((p) => tierFilter === "all" || p.tier === tierFilter);
+  const list = (catalog.providers || []).filter(providerMatchesFilter);
   if (!list.length) {
-    root.innerHTML = '<div class="empty"><strong>暂无商家</strong>换一个档位再看看</div>';
+    root.innerHTML = '<div class="empty"><strong>暂无商家</strong>换一个档位再看看，或点右上角「添加」</div>';
     return;
   }
   root.innerHTML = list
@@ -229,7 +247,7 @@ function renderCatalog() {
           : "";
       return `
       <article class="provider-card" data-id="${escapeHtml(p.id)}">
-        <span class="tier ${escapeHtml(p.tier)}">${tierLabel(p.tier)}</span>
+        ${tierBadgesHtml(p)}
         <h3>${escapeHtml(p.name)}</h3>
         <p>${escapeHtml(p.notes || "")}</p>
         <p class="models"><strong>模型</strong> · ${preview}${models.length > 3 ? " …" : ""}</p>
@@ -247,6 +265,12 @@ function renderCatalog() {
               ? `<button type="button" class="btn ghost" data-open="${escapeHtml(p.docsUrl)}">文档</button>`
               : ""
           }
+          ${
+            p.custom
+              ? `<button type="button" class="btn ghost" data-edit-prov="${escapeHtml(p.id)}">编辑</button>
+                 <button type="button" class="btn danger ghost" data-del-prov="${escapeHtml(p.id)}">删除</button>`
+              : ""
+          }
           <button type="button" class="btn primary" data-connect="${escapeHtml(p.id)}">填入密钥</button>
         </div>
       </article>`;
@@ -258,6 +282,12 @@ function renderCatalog() {
   });
   root.querySelectorAll("[data-open]").forEach((btn) => {
     btn.addEventListener("click", () => openExternal(btn.getAttribute("data-open")));
+  });
+  root.querySelectorAll("[data-edit-prov]").forEach((btn) => {
+    btn.addEventListener("click", () => openProviderDialog(btn.getAttribute("data-edit-prov")));
+  });
+  root.querySelectorAll("[data-del-prov]").forEach((btn) => {
+    btn.addEventListener("click", () => deleteCustomProvider(btn.getAttribute("data-del-prov")));
   });
 }
 
@@ -445,8 +475,110 @@ function openConnect(providerId) {
   $("connApiKey").required = true;
   $("connApiKey").placeholder = "";
   $("connModels").value = (p.models || []).join(", ");
-  $("connPriority").value = p.tier === "free" ? 10 : p.tier === "trial" ? 20 : 30;
+  const tiers = providerTiers(p);
+  $("connPriority").value =
+    Number(p.defaultPriority) > 0
+      ? Number(p.defaultPriority)
+      : tiers.includes("free")
+        ? 10
+        : tiers.includes("trial")
+          ? 20
+          : 30;
   $("connectDialog").showModal();
+}
+
+function selectedProtocol() {
+  const el = document.querySelector('input[name="provProtocol"]:checked');
+  return el?.value || "openai";
+}
+
+function selectedTiers() {
+  return [...document.querySelectorAll("#provTiers input[type=checkbox]:checked")].map(
+    (el) => el.value,
+  );
+}
+
+function setSelectedTiers(tiers) {
+  const set = new Set(tiers || []);
+  document.querySelectorAll("#provTiers input[type=checkbox]").forEach((el) => {
+    el.checked = set.has(el.value);
+  });
+}
+
+function setSelectedProtocol(protocol) {
+  const want = protocol || "openai";
+  document.querySelectorAll('input[name="provProtocol"]').forEach((el) => {
+    el.checked = el.value === want;
+  });
+}
+
+function openProviderDialog(editId) {
+  const p = editId ? (catalog.providers || []).find((x) => x.id === editId && x.custom) : null;
+  $("providerTitle").textContent = p ? `编辑 ${p.name}` : "添加供应商";
+  $("provEditId").value = p?.id || "";
+  $("provName").value = p?.name || "";
+  $("provNotes").value = p?.notes || "";
+  $("provModels").value = (p?.models || []).join(", ");
+  $("provBaseUrl").value = p?.baseUrl || "";
+  $("provApiKey").value = "";
+  $("provApiKey").placeholder = p
+    ? "留空则只更新商家卡片，不新建连接"
+    : "可选；填写则同时建立连接";
+  $("provPriority").value = Number(p?.defaultPriority) > 0 ? Number(p.defaultPriority) : 30;
+  $("provGuide").value = p?.quotaHint || "";
+  $("provSignupUrl").value = p?.signupUrl || "";
+  $("provDocsUrl").value = p?.docsUrl || "";
+  setSelectedProtocol(p?.protocol || "openai");
+  setSelectedTiers(p ? providerTiers(p) : ["custom"]);
+  $("providerDialog").showModal();
+  $("provName").focus();
+}
+
+let confirmResolver = null;
+
+function askConfirm({ title = "确认操作", message = "", confirmText = "确认", danger = false } = {}) {
+  return new Promise((resolve) => {
+    if (confirmResolver) {
+      confirmResolver(false);
+      confirmResolver = null;
+    }
+    confirmResolver = resolve;
+    $("confirmTitle").textContent = title;
+    $("confirmMessage").textContent = message;
+    const ok = $("btnConfirmOk");
+    ok.textContent = confirmText;
+    ok.className = danger ? "btn danger" : "btn primary";
+    $("confirmDialog").showModal();
+  });
+}
+
+function settleConfirm(ok) {
+  const resolve = confirmResolver;
+  confirmResolver = null;
+  closeDialog("confirmDialog");
+  if (resolve) resolve(Boolean(ok));
+}
+
+async function deleteCustomProvider(id) {
+  if (!id) return;
+  const p = (catalog.providers || []).find((x) => x.id === id);
+  const name = p?.name || "该自定义商家";
+  const ok = await askConfirm({
+    title: "删除供应商",
+    message: `确定删除「${name}」？此操作不可恢复。已有连接不会自动删除，可在「我的连接」中另行处理。`,
+    confirmText: "确认删除",
+    danger: true,
+  });
+  if (!ok) return;
+  const res = await fetch(`/api/catalog/custom/${encodeURIComponent(id)}`, { method: "DELETE" });
+  const data = await res.json();
+  if (!res.ok) {
+    toast(data.error || "删除失败");
+    return;
+  }
+  if (data.catalog) catalog = data.catalog;
+  renderCatalog();
+  toast("已删除自定义商家");
 }
 
 /** 编辑已有连接：可改名称 / Base URL / 模型 / 密钥（密钥留空则保留） */
@@ -506,7 +638,84 @@ document.querySelectorAll(".chip").forEach((chip) => {
   });
 });
 
-$("btnConnectCancel").addEventListener("click", () => $("connectDialog").close());
+function closeDialog(id) {
+  const el = $(id);
+  if (el?.open) el.close();
+}
+
+document.querySelectorAll("[data-close-dialog]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const id = btn.getAttribute("data-close-dialog");
+    if (id === "confirmDialog") settleConfirm(false);
+    else closeDialog(id);
+  });
+});
+
+$("btnConnectCancel").addEventListener("click", () => closeDialog("connectDialog"));
+$("btnAddProvider")?.addEventListener("click", () => openProviderDialog());
+$("btnProviderCancel")?.addEventListener("click", () => closeDialog("providerDialog"));
+$("btnConfirmCancel")?.addEventListener("click", () => settleConfirm(false));
+$("confirmForm")?.addEventListener("submit", (e) => {
+  e.preventDefault();
+  settleConfirm(true);
+});
+$("confirmDialog")?.addEventListener("cancel", (e) => {
+  e.preventDefault();
+  settleConfirm(false);
+});
+
+$("providerForm")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const tiers = selectedTiers();
+  if (!tiers.length) {
+    toast("请至少选择一个分类");
+    return;
+  }
+  const models = $("provModels").value
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+  const payload = {
+    id: ($("provEditId").value || "").trim() || undefined,
+    name: $("provName").value.trim(),
+    notes: $("provNotes").value.trim(),
+    guide: $("provGuide").value.trim(),
+    models,
+    baseUrl: $("provBaseUrl").value.trim(),
+    apiKey: $("provApiKey").value.trim(),
+    priority: Number($("provPriority").value) || 30,
+    signupUrl: $("provSignupUrl").value.trim(),
+    docsUrl: $("provDocsUrl").value.trim(),
+    protocol: selectedProtocol(),
+    tiers,
+    connect: Boolean($("provApiKey").value.trim()),
+  };
+  const res = await fetch("/api/catalog/custom", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    toast(data.error || "保存失败");
+    return;
+  }
+  if (data.catalog) catalog = data.catalog;
+  $("providerDialog").close();
+  if (data.connections || data.localApiKey || data.strategy) {
+    applyConfigPayload(data);
+  } else {
+    renderCatalog();
+  }
+  toast(
+    payload.apiKey
+      ? "已添加商家并创建连接。请重新打开 Agent 使接线生效。"
+      : payload.id
+        ? "已更新自定义商家"
+        : "已添加自定义商家；可再点「填入密钥」建连接",
+  );
+  if (payload.apiKey) document.querySelector('.tab[data-tab="connections"]')?.click();
+});
 
 $("connectForm").addEventListener("submit", async (e) => {
   e.preventDefault();
