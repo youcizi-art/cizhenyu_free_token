@@ -20,9 +20,11 @@
 2. 点**配置**，打开本机配置页（与 CMS/CRM 同款顶级窗口）。
 3. **商家目录**：点「去注册」到官网拿免费/试用 Key，再「填入密钥」保存连接。
 4. **策略与状态**：默认模型选 `cizhenyu/auto`（按请求自动分流文本/看图）；确认后点「保存策略并重新接线」。
-5. **重新打开** DSH / OpenCode（已开的窗口不会自动切换）。
+5. **重新打开** DSH / OpenCode（接线/停止后会杀掉旧进程；请从运营页再开）。
    - 日常选 **cizhenyu/auto**：纯文本走文本池，带图走视觉池；额度/429 时同池内换家并改写上游模型。
    - 也可钉死 **auto-text** / **auto-vision**；视觉池按**单模型**能力过滤。
+   - Cloudflare Workers AI：Base URL 须把 `{account_id}` 换成真实 ID，否则该连接不参与路由。
+   - 网关不再改写 DSH `.credentials.yaml`；若曾出现 Messages transport failed，先停网关，再重开 DSH 并重新保存官方 DeepSeek Key。
    - 聊天附件：图片 → 视觉；txt/md/csv/json/代码等 → 抽文本；其它类型返回 `unsupported_file`。
    - 生图 API 无上游时返回 `no_image_gen_upstream`（不会用聊天模型假装生图）。
    - **DSH**：接线后仍保留官方 DeepSeek 模型（经网关转发）；停服务后完整恢复 cordis 与官方 Key。首次接线前请先登录过官方 DeepSeek，以便备份 Key。

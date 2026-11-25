@@ -45,18 +45,11 @@
       "models": [
         "openai/gpt-oss-120b",
         "openai/gpt-oss-20b",
-        "qwen/qwen3.8-27b",
-        "llama-3.3-70b-versatile",
-        "llama-3.1-8b-instant",
-        "meta-llama/llama-4-scout-17b-16e-instruct",
-        "moonshotai/kimi-k2-instruct",
-        "gemma2-9b-it"
+        "qwen/qwen3.8-27b"
       ],
-      "modelCapabilities": {
-        "meta-llama/llama-4-scout-17b-16e-instruct": ["text", "image"]
-      },
+      "modelCapabilities": {},
       "quotaHint": "免费层约 30 RPM / 1K RPD，TPM 较紧，适合短请求",
-      "notes": "极速推理。模型列表以 console.groq.com/docs/models 为准。视觉仅 Scout 等 VL 模型进 auto-vision。"
+      "notes": "极速推理。2026-08 起免费层已下线 Llama 3.1/3.3 等；请用 gpt-oss / qwen3.8。模型列表以 console.groq.com/docs/models 为准。"
     },
     {
       "id": "google-ai-studio",
@@ -68,16 +61,13 @@
       "docsUrl": "https://ai.google.dev/gemini-api/docs/openai",
       "capabilities": ["text", "image"],
       "models": [
-        "gemini-2.5-flash",
-        "gemini-2.5-flash-lite",
-        "gemini-2.0-flash",
-        "gemini-2.0-flash-lite",
-        "gemma-3-27b-it",
-        "gemma-3-12b-it",
-        "gemma-3-4b-it"
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+        "gemini-3.6-flash",
+        "gemini-3.8-flash"
       ],
       "quotaHint": "免费层按模型有 RPM/日限额；免费内容可能用于改进产品",
-      "notes": "AI Studio API Key + 官方 OpenAI 兼容端点。长上下文首选。"
+      "notes": "AI Studio API Key + OpenAI 兼容端点。3.8 高峰常 503，目录把 lite 放前；点名 3.8 失败时 remap 会回退到同连接其它模型。"
     },
     {
       "id": "cerebras",

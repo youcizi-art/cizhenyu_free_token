@@ -26,7 +26,7 @@ import {
   proxyChatCompletionsStream,
   proxyImageGenerations,
 } from "./lib/proxy.mjs";
-import { proxyAnthropicMessages } from "./lib/anthropic.mjs";
+import { proxyAnthropicMessages, writeAnthropicSSE } from "./lib/anthropic.mjs";
 import { poolStats } from "./lib/route_pool.mjs";
 import {
   publicRouteStats,
@@ -276,19 +276,34 @@ async function handle(req, res) {
     }
     const providerId = String(body.providerId || "custom").trim();
     const prov = getProvider(providerId);
+    const editId = String(body.id || "").trim();
+    const prev = editId
+      ? (cfg.connections || []).find((x) => x.id === editId)
+      : null;
+    // 编辑时 apiKey 省略/空串 → 保留原密钥
+    const apiKeyRaw = body.apiKey;
+    const apiKey =
+      apiKeyRaw === undefined || apiKeyRaw === null || String(apiKeyRaw).trim() === ""
+        ? prev?.apiKey || ""
+        : String(apiKeyRaw).trim();
+    if (!apiKey) {
+      sendJson(res, 400, { error: "apiKey required" });
+      return;
+    }
     const saved = upsertConnection(cfg, {
-      id: body.id || genId("conn"),
+      id: editId || genId("conn"),
       providerId,
       label: body.label || prov?.name || "连接",
-      apiKey: body.apiKey || "",
-      baseUrl: body.baseUrl || prov?.baseUrl || "",
+      apiKey,
+      baseUrl: body.baseUrl || prev?.baseUrl || prov?.baseUrl || "",
       models:
         Array.isArray(body.models) && body.models.length
           ? body.models
-          : [...(prov?.models || [])],
+          : [...(prev?.models || prov?.models || [])],
       enabled: body.enabled !== false,
       priority: body.priority,
-      tier: body.tier || prov?.tier || "paid",
+      tier: body.tier || prev?.tier || prov?.tier || "paid",
+      capabilities: body.capabilities || prev?.capabilities,
     });
     const wire = tryApplyWire();
     sendJson(res, 200, { ...publicConfigView(saved), wire });
@@ -340,6 +355,14 @@ async function handle(req, res) {
       return;
     }
     const result = await proxyAnthropicMessages(loadConfig(), body);
+    if (result.status >= 400) {
+      sendJson(res, result.status, result.body, result.headers || {});
+      return;
+    }
+    if (body.stream || result.stream) {
+      writeAnthropicSSE(res, result.body, result.headers || {});
+      return;
+    }
     sendJson(res, result.status, result.body, result.headers || {});
     return;
   }

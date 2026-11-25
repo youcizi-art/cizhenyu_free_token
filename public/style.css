@@ -481,8 +481,15 @@ h1 {
   background: var(--surface-2);
 }
 
-.conn-foot .btn.danger {
+.conn-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   margin-left: auto;
+}
+
+.conn-foot .btn.danger {
+  margin-left: 0;
 }
 
 /* Toggle switch */

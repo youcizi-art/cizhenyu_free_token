@@ -171,6 +171,7 @@
         <h3 id="connectTitle">填入密钥</h3>
         <p id="connectHint" class="muted small"></p>
         <input type="hidden" id="connProviderId" />
+        <input type="hidden" id="connEditId" value="" />
         <label class="field">
           <span>显示名称</span>
           <input id="connLabel" required />
@@ -181,11 +182,11 @@
         </label>
         <label class="field">
           <span>API Key</span>
-          <input id="connApiKey" type="password" required autocomplete="off" />
+          <input id="connApiKey" type="password" autocomplete="off" placeholder="编辑时留空则保持原密钥" />
         </label>
         <label class="field">
           <span>模型 id（逗号分隔）</span>
-          <input id="connModels" placeholder="例如 llama-3.3-70b-versatile" />
+          <input id="connModels" placeholder="例如 openai/gpt-oss-20b, qwen/qwen3.8-27b" />
         </label>
         <label class="field">
           <span>优先级（越小越先）</span>

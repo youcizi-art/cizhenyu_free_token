@@ -23,14 +23,31 @@ import {
 import {
   ROOT,
   ensureHome,
+  homeDir,
   pidPath,
   portPath,
   logPath,
   resolveNode,
   defaultPort,
 } from "./lib/paths.mjs";
+import { existsSync as fsExists } from "node:fs";
+import { join as pathJoin } from "node:path";
 
 const cmd = (process.argv[2] || "status").toLowerCase();
+
+/** 保证子进程能定位 .cizhenyu/agents（Deploy 会注入；CLI 自启时回退解析） */
+function resolveSystemRoot() {
+  const fromEnv = String(process.env.CIZHENYU_SYSTEM_ROOT || "").trim();
+  if (fromEnv) return fromEnv;
+  const candidates = [
+    pathJoin(homeDir(), "..", "..", ".."),
+    pathJoin(homeDir(), "..", ".."),
+  ];
+  for (const c of candidates) {
+    if (fsExists(pathJoin(c, "agents"))) return c;
+  }
+  return candidates[0];
+}
 
 function readPid() {
   if (!existsSync(pidPath())) return null;
@@ -133,7 +150,11 @@ async function cmdStart() {
     cwd: ROOT,
     detached: true,
     stdio: ["ignore", outFd, outFd],
-    env: { ...process.env, CIZHENYU_FREE_TOKEN_PORT: String(port) },
+    env: {
+      ...process.env,
+      CIZHENYU_FREE_TOKEN_PORT: String(port),
+      CIZHENYU_SYSTEM_ROOT: resolveSystemRoot(),
+    },
     windowsHide: true,
   });
   child.unref();

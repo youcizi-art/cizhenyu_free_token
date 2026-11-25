@@ -311,12 +311,18 @@ function renderConnections() {
             <span class="toggle-track" aria-hidden="true"></span>
             <span class="toggle-label">${on ? "参与轮换" : "不参与"}</span>
           </label>
-          <button type="button" class="btn danger sm" data-del="${escapeHtml(c.id)}">删除</button>
+          <div class="conn-actions">
+            <button type="button" class="btn ghost sm" data-edit="${escapeHtml(c.id)}">编辑</button>
+            <button type="button" class="btn danger sm" data-del="${escapeHtml(c.id)}">删除</button>
+          </div>
         </div>
       </article>`;
     })
     .join("");
 
+  root.querySelectorAll("[data-edit]").forEach((btn) => {
+    btn.addEventListener("click", () => openEditConnection(btn.getAttribute("data-edit")));
+  });
   root.querySelectorAll("[data-del]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const id = btn.getAttribute("data-del");
@@ -426,6 +432,7 @@ async function refreshRoute() {
 function openConnect(providerId) {
   const p = (catalog.providers || []).find((x) => x.id === providerId);
   if (!p) return;
+  $("connEditId").value = "";
   $("connProviderId").value = p.id;
   $("connectTitle").textContent = `连接 ${p.name}`;
   $("connectHint").textContent = p.signupUrl
@@ -435,8 +442,35 @@ function openConnect(providerId) {
   $("connBaseUrl").value = p.baseUrl || "";
   $("baseUrlField").style.display = "block";
   $("connApiKey").value = "";
+  $("connApiKey").required = true;
+  $("connApiKey").placeholder = "";
   $("connModels").value = (p.models || []).join(", ");
   $("connPriority").value = p.tier === "free" ? 10 : p.tier === "trial" ? 20 : 30;
+  $("connectDialog").showModal();
+}
+
+/** 编辑已有连接：可改名称 / Base URL / 模型 / 密钥（密钥留空则保留） */
+function openEditConnection(connId) {
+  const c = (config?.connections || []).find((x) => x.id === connId);
+  if (!c) {
+    toast("找不到该连接");
+    return;
+  }
+  const p = (catalog.providers || []).find((x) => x.id === c.providerId);
+  $("connEditId").value = c.id;
+  $("connProviderId").value = c.providerId || "custom";
+  $("connectTitle").textContent = `编辑 ${c.label || c.providerId}`;
+  $("connectHint").textContent = p?.signupUrl
+    ? "可更新密钥与模型列表。API Key 留空表示保持原密钥不变。"
+    : "编辑连接参数。API Key 留空表示保持原密钥不变。";
+  $("connLabel").value = c.label || "";
+  $("connBaseUrl").value = c.baseUrl || p?.baseUrl || "";
+  $("baseUrlField").style.display = "block";
+  $("connApiKey").value = "";
+  $("connApiKey").required = false;
+  $("connApiKey").placeholder = c.hasApiKey ? "已保存（留空不修改）" : "请填写 API Key";
+  $("connModels").value = (c.models || p?.models || []).join(", ");
+  $("connPriority").value = Number(c.priority) || 10;
   $("connectDialog").showModal();
 }
 
@@ -477,22 +511,32 @@ $("btnConnectCancel").addEventListener("click", () => $("connectDialog").close()
 $("connectForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const providerId = $("connProviderId").value;
+  const editId = ($("connEditId").value || "").trim();
   const models = $("connModels").value
     .split(",")
     .map((x) => x.trim())
     .filter(Boolean);
+  const apiKey = $("connApiKey").value.trim();
+  if (!editId && !apiKey) {
+    toast("请填写 API Key");
+    return;
+  }
+  const payload = {
+    providerId,
+    label: $("connLabel").value.trim(),
+    baseUrl: $("connBaseUrl").value.trim(),
+    models,
+    priority: Number($("connPriority").value) || 10,
+    enabled: true,
+  };
+  if (editId) payload.id = editId;
+  // 编辑且留空：不传 apiKey，服务端保留原值
+  if (apiKey) payload.apiKey = apiKey;
+  else if (!editId) payload.apiKey = "";
   const res = await fetch("/api/connections", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      providerId,
-      label: $("connLabel").value.trim(),
-      baseUrl: $("connBaseUrl").value.trim(),
-      apiKey: $("connApiKey").value.trim(),
-      models,
-      priority: Number($("connPriority").value) || 10,
-      enabled: true,
-    }),
+    body: JSON.stringify(payload),
   });
   const data = await res.json();
   if (!res.ok) {
@@ -501,7 +545,7 @@ $("connectForm").addEventListener("submit", async (e) => {
   }
   $("connectDialog").close();
   applyConfigPayload(data);
-  toast("已连接。请到「我的连接 / 策略」确认，并重新打开 Agent。");
+  toast(editId ? "已更新连接。请重新打开 Agent 使接线生效。" : "已连接。请到「我的连接 / 策略」确认，并重新打开 Agent。");
   document.querySelector('.tab[data-tab="connections"]').click();
 });
 
